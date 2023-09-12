@@ -4,7 +4,7 @@ Supercop, invades games, by Straw W Wagen.
 Requires the Terminator Nextbot.
 
 Convars
-  Spawn protection.
+  Spawn protection, Bot spawns at player spawnpoints, so this is needed.
   supercop_nextbot_spawnprot_copspawn    Bot won't shoot until it's been alive for this long
   supercop_nextbot_spawnprot_ply         Don't shoot players until they've been alive for this long.
 
