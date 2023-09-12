@@ -89,6 +89,7 @@ local invadedMessages = {
 }
 
 function supercopNextbot_CopInvade()
+    if not whereToSpawn then return end
     local cop = ents.Create( "sb_advanced_nextbot_terminator_hunter_supercop" )
     if not IsValid( cop ) then return end
     cop:SetPos( whereToSpawn )
