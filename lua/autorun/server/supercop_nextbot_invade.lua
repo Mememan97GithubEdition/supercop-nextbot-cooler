@@ -108,7 +108,7 @@ function supercopNextbot_CopInvade()
 
     end )
 
-    print( "Supercop Spawned: " .. Cop )
+    print( "Supercop Spawned: " .. cop )
 
     return cop
 
