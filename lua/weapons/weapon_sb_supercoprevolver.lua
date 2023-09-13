@@ -93,7 +93,7 @@ function SWEP:DoMuzzleFlash()
         local MUZZLEFLASH_357 = 6
 
         local ef = EffectData()
-        ef:SetEntity( self:GetParent() )
+        ef:SetEntity( self )
         ef:SetAttachment( self:LookupAttachment( "muzzle" ) )
         ef:SetScale( 1 )
         ef:SetFlags( MUZZLEFLASH_357 )
