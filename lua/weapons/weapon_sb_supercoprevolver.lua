@@ -67,6 +67,16 @@ function SWEP:PrimaryAttack()
     } )
 
     self:DoMuzzleFlash()
+
+    self:SetClip1( self:Clip1() - 1 )
+    self:SetNextPrimaryFire( CurTime() + 0.74 )
+    self:SetLastShootTime()
+
+    if not SERVER then return end
+
+    util.ScreenShake( owner:GetPos(), 5, 20, 0.25, 1000, true )
+    util.ScreenShake( owner:GetPos(), 1, 20, 0.45, 4000, true )
+
     local filterAllPlayers = RecipientFilter()
     filterAllPlayers:AddAllPlayers()
 
@@ -76,11 +86,7 @@ function SWEP:PrimaryAttack()
     end
 
     owner.SuperGunSound = CreateSound( owner, "Weapon_357.Single", filterAllPlayers )
-    owner.SuperGunSound:PlayEx( 1, 90 )
-
-    self:SetClip1( self:Clip1() - 1 )
-    self:SetNextPrimaryFire( CurTime() + 0.1 )
-    self:SetLastShootTime()
+    owner.SuperGunSound:PlayEx( 1, 88 )
 
 end
 

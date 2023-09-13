@@ -28,7 +28,7 @@ ENT.AimSpeed = 150
 ENT.WalkSpeed = 50
 ENT.RunSpeed = 100
 ENT.AccelerationSpeed = 1000
-ENT.DeathDropHeight = 50000000
+ENT.DeathDropHeight = 1000
 ENT.InformRadius = 0
 
 ENT.DontDropPrimary = true
@@ -39,7 +39,9 @@ ENT.ReallyStrong = false -- no metallic jumping sounds
 ENT.alwaysManiac = true -- fights other terminator based npcs, or other supercops
 ENT.HasFists = true
 ENT.IsTerminatorSupercop = true
+
 ENT.NextSpokenLine = 0
+ENT.StuffToSay = {}
 
 ENT.Models = { "models/player/police.mdl" }
 
@@ -225,7 +227,20 @@ local olReliableClass = "weapon_sb_supercoprevolver"
 ENT.TERM_FISTS = beatinStickClass
 
 function ENT:PlaySentence( sentenceIn )
+    if #self.StuffToSay >= 4 then return end -- don't add infinite stuff to say.
+    if #self.StuffToSay >= 1 and math.random( 0, 100 ) >= 50 then return end
+    table.insert( self.StuffToSay, sentenceIn )
+
+end
+
+ENT.SupercopOnComms = nil
+ENT.SupercopOldOnComms = nil
+
+function ENT:AdditionalThink()
     if self.NextSpokenLine > CurTime() then return end
+    if #self.StuffToSay <= 0 then return end
+
+    local sentenceIn = table.remove( self.StuffToSay, 1 )
 
     local sentence
 
@@ -238,15 +253,16 @@ function ENT:PlaySentence( sentenceIn )
     end
 
     if not sentence then return end
-
-    if isstring( self.lastSpokenSentence ) and sentence == self.lastSpokenSentence then return end
+    if isstring( self.lastSpokenSentence ) and ( sentence == self.lastSpokenSentence ) then return end
 
     self.lastSpokenSentence = sentence
 
     EmitSentence( sentence, self:GetShootPos(), self:EntIndex(), CHAN_AUTO, 1, 80, 0, 100 )
 
+    local additional = math.random( 10, 15 ) / 10
+
     local duration = SentenceDuration( sentence )
-    self.NextSpokenLine = CurTime() + duration + 0.2
+    self.NextSpokenLine = CurTime() + ( duration + additional )
 
 end
 
@@ -619,7 +635,10 @@ function ENT:DoTasks()
                     end
                 end
                 local result = self:ControlPath2( not self.IsSeeEnemy )
-                if result == false and IsValid( enemy ) or data.Unreachable then
+
+                local reallyLongPath = self:primaryPathIsValid() and self:GetPath():GetLength() > ( self.DistToEnemy * 2 )
+
+                if ( result == false and IsValid( enemy ) ) or data.Unreachable or reallyLongPath then
                     self:TaskComplete( "movement_followenemy" )
                     self:StartTask2( "movement_maintainlos", nil, "they're unreachable!" )
                     self:PlaySentence( playerUnreachBegin )
@@ -804,4 +823,4 @@ function ENT:DoTasks()
             end,
         },
     }
-end 
+end

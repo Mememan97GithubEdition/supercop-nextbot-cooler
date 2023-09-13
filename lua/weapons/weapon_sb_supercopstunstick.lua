@@ -51,6 +51,11 @@ local vec3_origin        = vector_origin
 function SWEP:PrimaryAttack()
     if not self:CanPrimaryAttack() then return end
 
+    self:SetNextPrimaryFire( CurTime() + 0.5 )
+    self:SetLastShootTime()
+
+    if not SERVER then return end
+
     local owner = self:GetOwner()
 
     owner:EmitSound( "Weapon_StunStick.Swing" )
@@ -60,9 +65,6 @@ function SWEP:PrimaryAttack()
         self:DoDamage()
 
     end )
-
-    self:SetNextPrimaryFire( CurTime() + 0.5 )
-    self:SetLastShootTime()
 
 end
 
@@ -99,7 +101,11 @@ function SWEP:DoDamage()
 
         SparkEffect( tr.HitPos, 1 )
 
+        util.ScreenShake( owner:GetPos(), 10, 10, 0.25, 1000, true )
+
     end
+    util.ScreenShake( owner:GetPos(), 2.5, 10, 0.45, 4000, true )
+
 end
 
 function SWEP:SecondaryAttack()
