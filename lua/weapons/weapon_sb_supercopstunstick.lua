@@ -20,6 +20,18 @@ SWEP.HitMask = MASK_SOLID
 
 SWEP.terminator_IgnoreWeaponUtility = true
 
+local function SparkEffect( SparkPos, scale )
+    timer.Simple( 0, function() -- wow wouldnt it be cool if effects worked on the first tick personally i think that would be really cool
+        local Sparks = EffectData()
+        Sparks:SetOrigin( SparkPos )
+        Sparks:SetMagnitude( 2 )
+        Sparks:SetScale( 1 * scale )
+        Sparks:SetRadius( 6 * scale )
+        util.Effect( "Sparks", Sparks )
+
+    end )
+end
+
 function SWEP:Initialize()
     self:SetHoldType( "melee" )
 
@@ -85,6 +97,8 @@ function SWEP:DoDamage()
         dmg:SetInflictor( self )
         tr.Entity:TakeDamageInfo( dmg )
 
+        SparkEffect( tr.HitPos, 1 )
+
     end
 end
 
@@ -94,6 +108,15 @@ end
 
 function SWEP:Equip()
     self:GetOwner():EmitSound( "Weapon_StunStick.Activate" )
+    local attachments = self:GetOwner():GetAttachments()
+    local rHandId
+    for _, attach in ipairs( attachments ) do
+        if attach.name ~= "RHand" then continue end
+        rHandId = attach.id
+
+    end
+    if not rHandId then return end
+    SparkEffect( self:GetOwner():GetAttachment( rHandId ).Pos, 0.25 )
 end
 
 function SWEP:OwnerChanged()

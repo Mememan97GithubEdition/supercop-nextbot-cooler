@@ -9,8 +9,7 @@ hook.Add( "PlayerInitialSpawn", "supercop_nextbot_storegenericspawnpoints", func
         table.insert( supercop_nextbot_copSpawnpoints, spawned:GetPos() )
 
     end )
-end )
-
+end ) 
 local whereToSpawn = nil
 
 local function setupCopRandomSpawnpoint()
@@ -24,82 +23,94 @@ local function setupCopRandomSpawnpoint()
     end
 end
 
+local function hasNavmesh()
+    if #navmesh.GetAllNavAreas() <= 0 then return end
+
+    return true
+
+end
+
 local msgPrefix = "[Supercop Nextbot] "
-local doPrints = CreateConVar( "supercop_nextbot_do_prints", 1, FCVAR_ARCHIVE, "Do supercop prints?", 0, 100 )
+local doPrints = CreateConVar( "supercop_nextbot_do_prints", 1, bit.bor( FCVAR_ARCHIVE ), "Do supercop prints?", 0, 1 )
 
 local function supercopMessage( message )
     if doPrints:GetBool() ~= true then return end
     local msgAppended = msgPrefix .. message
 
-    PrintMessage( HUD_PRINTCONSOLE, msgAppended )
+    print( msgAppended )
     PrintMessage( HUD_PRINTCENTER, msgAppended )
     PrintMessage( HUD_PRINTTALK, msgAppended )
 
 end
 
-local absolutelyCannotSpawn = nil
-local copThatExists = nil
+--globul
+supercop_nextbot_copThatExists = nil
 
-local doWarnAlarm = CreateConVar( "supercop_nextbot_do_invadingalarm", 1, FCVAR_ARCHIVE, "Do manhack alarm when spawned?", 0, 100 )
+local doWarnAlarm = CreateConVar( "supercop_nextbot_do_invadingalarm", 1, bit.bor( FCVAR_ARCHIVE ), "Do manhack alarm when spawned?", 0, 1 )
 local function supercopWarn()
     if doWarnAlarm:GetBool() ~= true then return end
     local filterAllPlayers = RecipientFilter()
     filterAllPlayers:AddAllPlayers()
 
-    if not IsValid( copThatExists ) then return end
+    if not IsValid( supercop_nextbot_copThatExists ) then return end
 
-    copThatExists.alarmSound = CreateSound( copThatExists, "ambient/alarms/manhack_alert_pass1.wav", filterAllPlayers )
-    copThatExists.alarmSound:SetSoundLevel( 0 )
-    copThatExists.alarmSound:Play()
+    supercop_nextbot_copThatExists.alarmSound = CreateSound( supercop_nextbot_copThatExists, "ambient/alarms/manhack_alert_pass1.wav", filterAllPlayers )
+    supercop_nextbot_copThatExists.alarmSound:SetSoundLevel( 0 )
+    supercop_nextbot_copThatExists.alarmSound:Play()
 
 end
 
 function supercopNextbot_CopCanInvade()
-    if absolutelyCannotSpawn then return false end
-    if #navmesh.GetAllNavAreas() <= 0 then
-        supercopMessage( "Supercop cannot invade... No navmesh." )
-        absolutelyCannotSpawn = true
+    if not hasNavmesh() then
+        print( "supercopNextbot_CopCanInvade: No navmesh, Generate/install one." )
         return false
 
     end
 
-    if IsValid( copThatExists ) then return false end
+    if IsValid( supercop_nextbot_copThatExists ) then return false end
 
     setupCopRandomSpawnpoint()
-    if not whereToSpawn then return false end
+    if not whereToSpawn then
+        print( "supercopNextbot_CopCanInvade: Navmesh doesn't reach any map spawnpoints." )
+        return false
 
-    if hook.Run( "supercop_nextbot_blockinvasion" ) == true then return end
+    end
+
+    if hook.Run( "supercop_nextbot_blockinvasion" ) == true then return false end
 
     return true
 
 end
 
 local invadedMessages = {
-    "Supercop has invaded...",
-    "Supercop is here to lay down the law...",
-    "Supercop has arrived to uphold justice...", 
-    "Crime rates about to decrease...Supercop is here...",
-    "Beware criminals, Supercop has invaded...",
-    "Supercop is now on duty...",
-    "Criminals, Your worst nightmare has arrived, Supercop is here...",
-    "Supercop has pulled up to maintain law and order...",
-    "Supercop has taken charge of the situation...",
-    "Buckle up, Supercop has invaded...",
+    "Supercop has invaded, hide your contraband...",
+    "Supercop is on the beat, watch out tax evaders...",
+    "Supercop has invaded, jaywalkers beware...",
+    "Supercop has invaded. Time to pay your parking tickets...",
+    "Supercop has invaded. Shouldn't have downloaded that car...",
+    "Supercop has invaded. Litterers, think twice...",
+    "Supercop is on duty. It's not illegal if he doesn't catch you...",
+    "Supercop has invaded, so you might want to stick to the speed limit...",
+    "Supercop has invaded, so reconsider your love for graffiti...",
+    "Supercop has invaded - it's a bad day for unconventional yard sales...",
+    "Supercop has invaded, maybe rethink the unauthorized lemonade stand...",
 
 }
 
 function supercopNextbot_CopInvade()
-    if not whereToSpawn then
-        supercopNextbot_CopCanInvade()
+    if supercopNextbot_CopCanInvade() ~= true then return end
 
-    end
     if not whereToSpawn then return end
     local cop = ents.Create( "sb_advanced_nextbot_terminator_hunter_supercop" )
-    if not IsValid( cop ) then return end
+    if not IsValid( cop ) then
+        print( "Supercop Failed to spawn." )
+        return
+
+    end
     cop:SetPos( whereToSpawn )
     cop:Spawn()
 
-    copThatExists = cop
+    supercop_nextbot_copThatExists = cop
 
     hook.Run( "supercop_nextbot_successfulinvasion" )
     supercopMessage( invadedMessages[ math.random( 1, #invadedMessages ) ] )
@@ -115,19 +126,20 @@ function supercopNextbot_CopInvade()
 end
 
 function supercopNextbot_Remove()
-    if IsValid( copThatExists ) then
-        supercopMessage( "Supercop has been sent to the void..." )
+    if not IsValid( supercop_nextbot_copThatExists ) then print( "No supercop to remove." ) return end
 
-    end
-    SafeRemoveEntity( copThatExists )
+    supercopMessage( "Supercop has been sent to the void..." )
+    SafeRemoveEntity( supercop_nextbot_copThatExists )
 
 end
 
+local doneNoNavmeshPrint = nil
+
 local theGamemode = engine.ActiveGamemode()
 if theGamemode == "terrortown" then
-    local spawnChance   = CreateConVar( "supercop_nextbot_ttt_invadechanceonroundstart",    15, FCVAR_ARCHIVE, "Spawn chance on round start, 0 to never spawn, 100 to always spawn.", 0, 100 )
-    local invadeDelay   = CreateConVar( "supercop_nextbot_ttt_invadedelay",                 15, FCVAR_ARCHIVE, "How long after the round starts should supercop wait to invade, seconds.", 0, 60 * 20 )
-    local oncePerMap    = CreateConVar( "supercop_nextbot_ttt_invadeonce",                  1, FCVAR_ARCHIVE, "Only allow supercop to invade once per map.", 0, 1 )
+    local spawnChance   = CreateConVar( "supercop_nextbot_ttt_invadechanceonroundstart",    15, bit.bor( FCVAR_ARCHIVE ), "Spawn chance on round start, 0 to never spawn, 100 to always spawn.", 0, 100 )
+    local invadeDelay   = CreateConVar( "supercop_nextbot_ttt_invadedelay",                 15, bit.bor( FCVAR_ARCHIVE ), "How long after the round starts should supercop wait to invade, seconds.", 0, 60 * 20 )
+    local oncePerMap    = CreateConVar( "supercop_nextbot_ttt_invadeonce",                  1, bit.bor( FCVAR_ARCHIVE ), "Only allow supercop to invade once per map.", 0, 1 )
 
     local doneInvade = nil
 
@@ -136,16 +148,24 @@ if theGamemode == "terrortown" then
             local chance = spawnChance:GetFloat()
             if chance <= 0 then return end
 
-            if doneInvade and oncePerMap:GetBool() then
-                PrintMessage( HUD_PRINTCONSOLE, msgPrefix .. "LOG: Supercop tried to invade on round start twice in one map. blocked by convar 'supercop_nextbot_ttt_invadeonce'" )
+            if not hasNavmesh() then
+                if doneNoNavmeshPrint then return end
+                doneNoNavmeshPrint = true
+                supercopMessage( "Supercop cannot invade... No navmesh." )
                 return
 
             end
 
-            local rand = math.random( 1, 100 )
-            -- if rand ends up above chance, do not invade
-            if chance ~= 100 and rand >= chance then
-                PrintMessage( HUD_PRINTCONSOLE, msgPrefix .. "LOG: Supercop did not invade on round start. \nRoll: " .. rand .. "\nRequired: < " .. chance )
+            if doneInvade and oncePerMap:GetBool() then
+                print( msgPrefix .. "LOG: Supercop tried to invade on round start twice in one map.\nBlocked by convar 'supercop_nextbot_ttt_invadeonce'" )
+                return
+
+            end
+
+            local roll = math.random( 1, 100 )
+            -- if roll ends up above chance, do not invade
+            if roll >= chance then -- don't spawn
+                print( msgPrefix .. "LOG: Supercop invasion on round start, blocked by random chance.\nRoll: " .. roll .. "\nRequired: < " .. chance .. "\nChange supercop_nextbot_ttt_invadechanceonroundstart to 100, to always invade." )
                 return
 
             end
@@ -158,20 +178,34 @@ if theGamemode == "terrortown" then
         end )
     end )
 else
-    local spawnChance       = CreateConVar( "supercop_nextbot_generic_invasionchance",   2, FCVAR_ARCHIVE, "Chance for supercop to invade, rolled once every minute, 0 never spawns, 100, always.", 0, 100 )
-    local invasionLength    = CreateConVar( "supercop_nextbot_generic_invasionlength",   15, FCVAR_ARCHIVE, "How long in minutes, will supercop invade for? 0 to never despawn.", 0, 1000 )
+    local spawnChance       = CreateConVar( "supercop_nextbot_generic_invasionchance",   2, bit.bor( FCVAR_ARCHIVE ), "Chance for supercop to invade, rolled once every minute, 0 never spawns, 100, always.", 0, 100 )
+    local invasionLength    = CreateConVar( "supercop_nextbot_generic_invasionlength",   15, bit.bor( FCVAR_ARCHIVE ), "How long in minutes, will supercop invade for? 0 to never despawn.", 0, 1000 )
 
     -- remove timer for editing file
     timer.Remove( "supercop_randomspawnchance" )
     timer.Create( "supercop_randomspawnchance", 60, 0, function()
         local chance = spawnChance:GetFloat()
         if chance <= 0 then return end
-        if not supercopNextbot_CopCanInvade() then return end
+
+        if not hasNavmesh() then
+            if doneNoNavmeshPrint then return end
+            doneNoNavmeshPrint = true
+            supercopMessage( "Supercop cannot invade... No navmesh." )
+            return
+
+        end
 
         if math.random( 1, 100 ) >= chance then return end
-        supercopNextbot_CopInvade()
+        if not supercopNextbot_CopCanInvade() then return end
+        local cop = supercopNextbot_CopInvade()
+        local spawnedTime = CurTime()
+        cop.spawnedTime = spawnedTime
 
         timer.Simple( 60 * invasionLength:GetInt(), function()
+            if not IsValid( supercop_nextbot_copThatExists ) then return end
+            if not supercop_nextbot_copThatExists.spawnedTime then return end
+            if supercop_nextbot_copThatExists.spawnedTime ~= spawnedTime then return end
+
             supercopNextbot_Remove()
 
         end )

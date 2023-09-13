@@ -22,7 +22,7 @@ ENT.DefaultStepHeight = 18
 ENT.StandingStepHeight = ENT.DefaultStepHeight * 1 -- used in crouch toggle in motionoverrides
 ENT.CrouchingStepHeight = ENT.DefaultStepHeight * 0.9
 ENT.StepHeight = ENT.StandingStepHeight
-ENT.PathGoalToleranceFinal = 25
+ENT.PathGoalToleranceFinal = 35
 ENT.SpawnHealth = 1000000
 ENT.AimSpeed = 150
 ENT.WalkSpeed = 50
@@ -147,7 +147,7 @@ local approachingEnemyVisible = {
 }
 
 local weaponWarn = {
-    "METROPOLICE_MOVE_ALONG_B0",
+    "METROPOLICE_BACK_UP_C3",
     "METROPOLICE_MOVE_ALONG_C0",
     "METROPOLICE_MOVE_ALONG_C3",
     "METROPOLICE_BACK_UP_C4",
@@ -166,6 +166,8 @@ local approachingEnemyObscured = {
 }
 
 local playerDead = {
+    "METROPOLICE_MOVE_ALONG_B0",
+
     "METROPOLICE_KILL_PLAYER0",
     "METROPOLICE_KILL_PLAYER1",
     "METROPOLICE_KILL_PLAYER2",
@@ -177,8 +179,6 @@ local playerDead = {
     "METROPOLICE_KILL_CITIZENS1",
     "METROPOLICE_KILL_CITIZENS2",
     "METROPOLICE_KILL_CITIZENS3",
-
-    "METROPOLICE_MONST_PLAYER_VEHICLE2",
 
 }
 
@@ -244,6 +244,9 @@ function ENT:PlaySentence( sentenceIn )
 
     EmitSentence( sentence, self:GetShootPos(), self:EntIndex(), CHAN_AUTO, 1, 80, 0, 100 )
 
+    local duration = SentenceDuration( sentence )
+    self.NextSpokenLine = CurTime() + duration + 0.2
+
 end
 
 function ENT:SpeakLine( line )
@@ -256,7 +259,9 @@ hook.Add( "terminator_engagedenemywasbad", "supercop_killedenemy", function( sel
     if not self.IsTerminatorSupercop then return end
     if not IsValid( enemyLost ) then return end
     if enemyLost:Health() <= 0 then
-        if math.random( 1, 100 ) < 5 then
+        -- secret, funny pick up that can line
+        if math.random( 0, 100 ) <= 5 and math.random( 0, 100 ) <= 15 and self.NextPickupTheCanLine < CurTime() then
+            self.NextPickupTheCanLine = CurTime() + 55
             self.NextSpokenLine = CurTime() + 4
             timer.Simple( 1.5, function()
                 if not IsValid( self ) then return end
@@ -270,9 +275,7 @@ hook.Add( "terminator_engagedenemywasbad", "supercop_killedenemy", function( sel
 
             end )
         else
-            self.NextSpokenLine = 0
             self:PlaySentence( playerDead )
-            self.NextSpokenLine = CurTime() + 2
 
         end
     end
@@ -296,15 +299,16 @@ function ENT:GetAimVector()
     return dir
 end
 
-local spawnProtectionLength     = CreateConVar( "supercop_nextbot_spawnprot_copspawn",  10, FCVAR_ARCHIVE, "Bot won't shoot until it's been alive for this long", 0, 60 )
-local plyspawnProtectionLength  = CreateConVar( "supercop_nextbot_spawnprot_ply",       5, FCVAR_ARCHIVE, "Don't shoot players until they've been alive for this long.", 0, 60 )
+local spawnProtectionLength     = CreateConVar( "supercop_nextbot_spawnprot_copspawn",  10, bit.bor( FCVAR_ARCHIVE ), "Bot won't shoot until it's been alive for this long", 0, 60 )
+local plyspawnProtectionLength  = CreateConVar( "supercop_nextbot_spawnprot_ply",       5, bit.bor( FCVAR_ARCHIVE ), "Don't shoot players until they've been alive for this long.", 0, 60 )
 
-ENT.SupercopEquipRevolverDist = 250
+ENT.SupercopEquipRevolverDist = 350
 ENT.EquipDistRampup = 15
-ENT.SupercopUnequipRevolverDist = 600
+ENT.SupercopUnequipRevolverDist = 900
 ENT.SupercopBeatingStickDist = 125
 ENT.SupercopBlockOlReliable = 0
 ENT.SupercopBlockShooting = 0
+ENT.NextPickupTheCanLine = 0
 
 local _CurTime = CurTime
 
@@ -321,7 +325,7 @@ function ENT:AdditionalInitialize()
 
 end
 
-local supercopJog = CreateConVar( "supercop_nextbot_jog", 0, FCVAR_ARCHIVE, "Should supercop jog?.", 0, 1 )
+local supercopJog = CreateConVar( "supercop_nextbot_jog", 0, bit.bor( FCVAR_ARCHIVE ), "Should supercop jog?.", 0, 1 )
 
 function ENT:GetFootstepSoundTime()
     local vel2d = self.loco:GetVelocity():Length2D()
@@ -350,14 +354,13 @@ function ENT:DoTasks()
                 local notBlockShooting = self.SupercopBlockShooting < _CurTime()
                 local nextWeaponPickup = self.terminator_NextWeaponPickup or 0
 
-                if self.DistToEnemy < self.SupercopBeatingStickDist then
+                if self.DistToEnemy < self.SupercopBeatingStickDist and self.NothingOrBreakableBetweenEnemy then
                     if not doingBeatinStick and notBlockShooting and nextWeaponPickup < _CurTime() then
                         self.PreventShooting = nil
                         self.DoHolster = nil
                         self:Give( beatinStickClass )
                         self.SupercopBlockShooting = _CurTime() + 0.3
                         self:PlaySentence( "METROPOLICE_ACTIVATE_BATON" .. math.random( 0, 2 ) )
-                        self.NextSpokenLine = _CurTime() + 2
                         self.SupercopBlockOlReliable = _CurTime() + math.Rand( 2, 3 )
 
                     end
@@ -371,7 +374,6 @@ function ENT:DoTasks()
                 elseif self.DoHolster and closeOrNotMoving then
                     self.DoHolster = nil
                     self:PlaySentence( weaponWarn )
-                    self.NextSpokenLine = _CurTime() + 2
 
                     self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, _CurTime() + 1.5 )
                     self.PreventShooting = nil
@@ -386,7 +388,7 @@ function ENT:DoTasks()
 
                 end
 
-                local neededOrRandReload = ( wep:Clip1() < wep:GetMaxClip1() / 2 ) or ( wep:Clip1() < wep:GetMaxClip1() and math.random( 1, 100 ) < 10 )
+                local neededOrRandReload = ( wep:Clip1() < wep:GetMaxClip1() / 2 ) or ( wep:Clip1() < wep:GetMaxClip1() and math.random( 1, 100 ) < 2 )
 
                 if self.DoHolster ~= self.OldDoHolster and wep:Clip1() == wep:GetMaxClip1() then
                     if self.DoHolster then
@@ -400,6 +402,11 @@ function ENT:DoTasks()
 
                 end
                 local blockShooting = self.DoHolster or self.PreventShooting or not self.NothingOrBreakableBetweenEnemy or self.SupercopBlockShooting > _CurTime()
+                local toAimAt = self.LastEnemyShootPos
+                if self.IsSeeEnemy then -- i mean it has wallhacks, but this makes it look like it doesn't 
+                    toAimAt = self:EntShootPos( enemy )
+
+                end
 
                 if wep:Clip1() <= 0 and wep:GetMaxClip1() > 0 then
                     self:WeaponReload()
@@ -409,7 +416,7 @@ function ENT:DoTasks()
                     local enemyIsSpawnProtected = enemySpawnProtEnds > _CurTime()
 
                     if doingBeatinStick then
-                        self:shootAt( self:EntShootPos( enemy ), true )
+                        self:shootAt( toAimAt, true )
                         -- beating stick gets a shorter cooldown after bot spawned, and ignores per-player spawnprotection
                         if ( self.DistToEnemy < wep.Range * 1.25 ) and self.SupercopJustspawnedBlockBeatstick < _CurTime() then
                             self:WeaponPrimaryAttack()
@@ -418,14 +425,14 @@ function ENT:DoTasks()
                     else
                         -- dont shoot if bot just spawned, or enemy just spawned
                         local protected = ( self.SupercopJustspawnedBlockShooting > _CurTime() ) or enemyIsSpawnProtected
-                        self:shootAt( self:EntShootPos( enemy ), protected )
+                        self:shootAt( toAimAt, protected )
 
                     end
                 elseif wep:GetMaxClip1() > 0 and neededOrRandReload then
                     self:WeaponReload()
 
                 else
-                    self:shootAt( self:EntShootPos( enemy ), true )
+                    self:shootAt( toAimAt, true )
 
                 end
             end,
@@ -486,7 +493,6 @@ function ENT:DoTasks()
 
                             if didForceEnemy and tooLongSinceLastEnemy then
                                 self:PlaySentence( "METROPOLICE_FLANK6" )
-                                self.NextSpokenLine = CurTime() + 1
 
                             end
 
@@ -512,10 +518,6 @@ function ENT:DoTasks()
 
                             if self.IsSeeEnemy and not self.WasSeeEnemy then
                                 hook.Run( "terminator_spotenemy", self, enemy )
-                                if self.DistToEnemy > self.SupercopEquipRevolverDist then
-                                    self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, _CurTime() + 1 )
-
-                                end
 
                             elseif not self.IsSeeEnemy and self.WasSeeEnemy then
                                 hook.Run( "terminator_loseenemy", self, enemy )
@@ -556,7 +558,6 @@ function ENT:DoTasks()
                     if IsValid( newenemy ) then
                         if not data.HasEnemy then
                             self:PlaySentence( spottedEnemy )
-                            self.NextSpokenLine = CurTime() + 1
                             self:RunTask( "EnemyFound", newenemy )
                         elseif prevenemy ~= newenemy then
                             self:RunTask( "EnemyChanged", newenemy, prevenemy )
@@ -621,7 +622,6 @@ function ENT:DoTasks()
                     self:TaskComplete( "movement_followenemy" )
                     self:StartTask2( "movement_maintainlos", nil, "they're unreachable!" )
                     self:PlaySentence( playerUnreachBegin )
-                    self.NextSpokenLine = _CurTime() + 3
 
                 elseif not IsValid( enemy ) and ( result == true or not self:primaryPathIsValid() ) then
                     self:TaskComplete( "movement_followenemy" )
@@ -629,19 +629,16 @@ function ENT:DoTasks()
                     if data.wasEnemy then
                         data.wasEnemy = nil
                         self:PlaySentence( "METROPOLICE_LOST_LONG" .. math.random( 0, 5 ) )
-                        self.NextSpokenLine = _CurTime() + 4
 
                     end
                 else
                     if data.nextTauntLine < _CurTime() then
                         if self.IsSeeEnemy then
                             self:PlaySentence( approachingEnemyVisible )
-                            self.NextSpokenLine = _CurTime() + 2
                             data.nextTauntLine = _CurTime() + math.Rand( 7, 13 )
 
                         else
                             self:PlaySentence( approachingEnemyObscured )
-                            self.NextSpokenLine = _CurTime() + 2
                             data.nextTauntLine = _CurTime() + math.Rand( 13, 20 )
 
                         end
@@ -659,7 +656,7 @@ function ENT:DoTasks()
         },
         ["movement_maintainlos"] = {
             OnStart = function( self, data )
-                data.tryAnotherPath = _CurTime() + 10
+                data.nextPath = 0
                 data.nextTauntLine = _CurTime() + 8
                 local distToShootpos = self:GetPos():Distance( self:GetShootPos() )
                 data.offsetToShootPos = Vector( 0, 0, distToShootpos )
@@ -680,10 +677,12 @@ function ENT:DoTasks()
                 local walkingOverAndEndCantSee = not data.wander and self:primaryPathIsValid() and not endCanSeeEnemy
 
                 local newPath = standingStillAndCantSee or walkingOverAndEndCantSee
-                if newPath then
+                if newPath and data.nextPath < _CurTime() then
                     local enemsShootPos = nil
+                    local enemsCrouchShootPos = nil
                     if not data.wander then
                         enemsShootPos = self:EntShootPos( enemy )
+                        enemsCrouchShootPos = enemsShootPos + ( -data.offsetToShootPos / 2 )
 
                     end
 
@@ -691,6 +690,7 @@ function ENT:DoTasks()
                     scoreData.self = self
                     scoreData.myShootPos = self:GetShootPos()
                     scoreData.enemysShootPos = enemsShootPos
+                    scoreData.enemysCrouchShootPos = enemsCrouchShootPos
                     scoreData.areaCenterOffset = data.offsetToShootPos
                     scoreData.wander = data.wander
 
@@ -705,13 +705,12 @@ function ENT:DoTasks()
                     -- find areas that have a line of sight to my enemy
                     local scoreFunction = function( scoreData, area1, area2 )
                         local area2Center = area2:GetCenter()
-
                         if not scoreData.self:areaIsReachable( area2 ) then return 0.01 end
 
-                        local score = 1
+                        local score = math.Round( math.Rand( 0.90, 1.10 ), 3 )
 
                         if area1:ComputeAdjacentConnectionHeightChange( area2 ) > scoreData.self.JumpHeight then
-                            score = 0.25
+                            return 0.25
 
                         end
 
@@ -720,12 +719,23 @@ function ENT:DoTasks()
 
                         end
 
-                        if not scoreData.wander and self:ClearOrBreakable( area2Center + scoreData.areaCenterOffset, scoreData.enemysShootPos ) then
-                            score = math.huge -- ok we done, return this area.
+                        if score >= 0.9 and not scoreData.wander and self:ClearOrBreakable( area2Center + scoreData.areaCenterOffset, scoreData.enemysShootPos ) then
+                            -- randomly allow step up
+                            if score > 1.05 then
+                                if self:ClearOrBreakable( area2Center + scoreData.areaCenterOffset, scoreData.enemysCrouchShootPos ) then
+                                    score = math.huge -- ok we done, return this area.
 
+                                else
+                                    score = 200
+
+                                end
+                            else
+                                score = 100
+
+                            end
                         end
 
-                        --debugoverlay.Text( area2Center, tostring( score ), 1, false )
+                        --debugoverlay.Text( area2Center, tostring( score ), 5, false )
 
                         return score
 
@@ -740,11 +750,19 @@ function ENT:DoTasks()
                     self:SetupPath2( posOnNav )
 
                     --debugoverlay.Cross( posOnNav, 100, 1, color_white, true )
+                    data.nextPath = _CurTime() + math.Rand( 4, 6 )
 
                     if not self:primaryPathIsValid() then return end
 
                 end
-                self:ControlPath2( not self.IsSeeEnemy )
+                local pathResult = self:ControlPath2( not self.IsSeeEnemy )
+
+                if pathResult == true and not data.endedPath then
+                    data.nextPath = _CurTime() + math.Rand( 2, 4 )
+
+                end
+
+                data.endedPath = data.endedPath or pathResult == true
 
                 if IsValid( enemy ) and seeAndCanShoot then
                     local navResult = terminator_Extras.getNearestPosOnNav( enemy:GetPos() )
@@ -755,21 +773,20 @@ function ENT:DoTasks()
                         return
 
                     end
-                    if self:primaryPathIsValid() and math.random( 1, 100 ) < 5 then
-                        self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, _CurTime() + 4 )
+                    -- we can see enemy and our path is valid, nuke our path sometimes and just open fire
+                    if self:primaryPathIsValid() and math.random( 1, 100 ) < 3 then
                         self:GetPath():Invalidate()
+                        data.nextPath = _CurTime() + 1
 
                     end
                 else
                     if data.nextTauntLine < _CurTime() then
                         if self.IsSeeEnemy then
                             self:PlaySentence( approachingEnemyVisible )
-                            self.NextSpokenLine = _CurTime() + 2
                             data.nextTauntLine = _CurTime() + math.Rand( 7, 13 )
 
                         else
                             self:PlaySentence( approachingEnemyObscured )
-                            self.NextSpokenLine = _CurTime() + 2
                             data.nextTauntLine = _CurTime() + math.Rand( 13, 20 )
 
                         end
