@@ -9,7 +9,8 @@ hook.Add( "PlayerInitialSpawn", "supercop_nextbot_storegenericspawnpoints", func
         table.insert( supercop_nextbot_copSpawnpoints, spawned:GetPos() )
 
     end )
-end ) 
+end )
+
 local whereToSpawn = nil
 
 local function setupCopRandomSpawnpoint()
@@ -162,7 +163,7 @@ if theGamemode == "terrortown" then
 
             end
 
-            local roll = math.random( 1, 100 )
+            local roll = math.random( 0, 100 )
             -- if roll ends up above chance, do not invade
             if roll >= chance then -- don't spawn
                 print( msgPrefix .. "LOG: Supercop invasion on round start, blocked by random chance.\nRoll: " .. roll .. "\nRequired: < " .. chance .. "\nChange supercop_nextbot_ttt_invadechanceonroundstart to 100, to always invade." )
@@ -178,7 +179,7 @@ if theGamemode == "terrortown" then
         end )
     end )
 else
-    local spawnChance       = CreateConVar( "supercop_nextbot_generic_invasionchance",   2, bit.bor( FCVAR_ARCHIVE ), "Chance for supercop to invade, rolled once every minute, 0 never spawns, 100, always.", 0, 100 )
+    local spawnChance       = CreateConVar( "supercop_nextbot_generic_invasionchance",   2, bit.bor( FCVAR_ARCHIVE ), "Chance for supercop to invade non-ttt sessions, rolled once every minute, 0 never spawns, 100, always.", 0, 100 )
     local invasionLength    = CreateConVar( "supercop_nextbot_generic_invasionlength",   15, bit.bor( FCVAR_ARCHIVE ), "How long in minutes, will supercop invade for? 0 to never despawn.", 0, 1000 )
 
     -- remove timer for editing file
@@ -195,7 +196,7 @@ else
 
         end
 
-        if math.random( 1, 100 ) >= chance then return end
+        if math.random( 0, 100 ) >= chance then return end
         if not supercopNextbot_CopCanInvade() then return end
         local cop = supercopNextbot_CopInvade()
         local spawnedTime = CurTime()
