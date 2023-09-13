@@ -109,8 +109,11 @@ function supercopNextbot_CopInvade()
 end
 
 function supercopNextbot_Remove()
+    if IsValid( copThatExists ) then
+        supercopMessage( "Supercop has been sent to the void..." )
+
+    end
     SafeRemoveEntity( copThatExists )
-    supercopMessage( "Supercop has been sent to the void..." )
 
 end
 
@@ -166,6 +169,5 @@ else
             supercopNextbot_Remove()
 
         end )
-
     end )
 end
