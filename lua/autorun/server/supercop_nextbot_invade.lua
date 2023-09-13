@@ -32,7 +32,7 @@ local function hasNavmesh()
 end
 
 local msgPrefix = "[Supercop Nextbot] "
-local doPrints = CreateConVar( "supercop_nextbot_do_prints", 1, bit.bor( FCVAR_ARCHIVE ), "Do supercop prints?", 0, 1 )
+local doPrints = CreateConVar( "supercop_nextbot_do_prints", 1, bit.bor( FCVAR_ARCHIVE ), "Do supercop chat & hud prints?", 0, 1 )
 
 local function supercopMessage( message )
     if doPrints:GetBool() ~= true then return end
