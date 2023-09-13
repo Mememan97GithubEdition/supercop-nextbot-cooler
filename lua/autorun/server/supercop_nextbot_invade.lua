@@ -230,8 +230,7 @@ else
     end )
 end
 
-hook.Add( "CanTool", "supercop_nextbot_blocktooling", function( tooler, tr )
-    PrintTable( tr )
+hook.Add( "CanTool", "supercop_nextbot_blocktooling", function( _, tr )
     if tr.Hit and IsValid( tr.Entity ) and tr.Entity == supercop_nextbot_copThatExists then return false end
 
 end )
