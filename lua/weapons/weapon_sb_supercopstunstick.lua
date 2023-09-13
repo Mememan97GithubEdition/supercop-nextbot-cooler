@@ -107,6 +107,7 @@ function SWEP:SecondaryAttack()
 end
 
 function SWEP:Equip()
+    if not SERVER then return end
     self:GetOwner():EmitSound( "Weapon_StunStick.Activate" )
     local attachments = self:GetOwner():GetAttachments()
     local rHandId
@@ -117,6 +118,7 @@ function SWEP:Equip()
     end
     if not rHandId then return end
     SparkEffect( self:GetOwner():GetAttachment( rHandId ).Pos, 0.25 )
+
 end
 
 function SWEP:OwnerChanged()

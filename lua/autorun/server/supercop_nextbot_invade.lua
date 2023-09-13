@@ -136,6 +136,9 @@ end
 
 local doneNoNavmeshPrint = nil
 
+local aiDisabled = GetConVar( "ai_disabled" )
+local aiIgnorePlayers = GetConVar( "ai_ignoreplayers" )
+
 local theGamemode = engine.ActiveGamemode()
 if theGamemode == "terrortown" then
     local spawnChance   = CreateConVar( "supercop_nextbot_ttt_invadechanceonroundstart",    15, bit.bor( FCVAR_ARCHIVE ), "Spawn chance on round start, 0 to never spawn, 100 to always spawn.", 0, 100 )
@@ -148,6 +151,9 @@ if theGamemode == "terrortown" then
         timer.Simple( invadeDelay:GetInt(), function()
             local chance = spawnChance:GetFloat()
             if chance <= 0 then return end
+
+            if aiDisabled:GetBool() then return end
+            if aiIgnorePlayers:GetBool() then return end
 
             if not hasNavmesh() then
                 if doneNoNavmeshPrint then return end
@@ -172,7 +178,11 @@ if theGamemode == "terrortown" then
             end
 
             if not supercopNextbot_CopCanInvade() then return end
-            supercopNextbot_CopInvade()
+            local cop = supercopNextbot_CopInvade()
+
+            if not IsValid( cop ) then return end
+
+            print( msgPrefix .. "LOG: Supercop has auto-invaded.\nRun the command: \"supercop_nextbot_ttt_invadechanceonroundstart 0\" To disable TTT auto-invasion" )
 
             doneInvade = true
 
@@ -188,6 +198,9 @@ else
         local chance = spawnChance:GetFloat()
         if chance <= 0 then return end
 
+        if aiDisabled:GetBool() then return end
+        if aiIgnorePlayers:GetBool() then return end
+
         if not hasNavmesh() then
             if doneNoNavmeshPrint then return end
             doneNoNavmeshPrint = true
@@ -199,6 +212,10 @@ else
         if math.random( 0, 100 ) >= chance then return end
         if not supercopNextbot_CopCanInvade() then return end
         local cop = supercopNextbot_CopInvade()
+
+        if not IsValid( cop ) then return end
+        print( msgPrefix .. "LOG: Supercop has invaded.\nRun the command: \"supercop_nextbot_generic_invasionchance 0\" To disable auto-invasion" )
+
         local spawnedTime = CurTime()
         cop.spawnedTime = spawnedTime
 
@@ -212,3 +229,9 @@ else
         end )
     end )
 end
+
+hook.Add( "CanTool", "supercop_nextbot_blocktooling", function( tooler, tr )
+    PrintTable( tr )
+    if tr.Hit and IsValid( tr.Entity ) and tr.Entity == supercop_nextbot_copThatExists then return false end
+
+end )

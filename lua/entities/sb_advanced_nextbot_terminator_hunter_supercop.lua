@@ -189,12 +189,13 @@ local playerUnreachBegin = {
 
 function ENT:GetDesiredEnemyRelationship( ent )
     local disp = D_HT
-    local theirdisp = D_NU
+    local theirdisp = D_HT
     local priority = 1000
 
     if ent:GetClass() == self:GetClass() then
         disp = D_LI
         theirdisp = D_LI
+
     end
 
     if ent:IsPlayer() then
