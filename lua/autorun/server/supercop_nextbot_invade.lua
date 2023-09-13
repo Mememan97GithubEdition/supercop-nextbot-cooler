@@ -89,6 +89,10 @@ local invadedMessages = {
 }
 
 function supercopNextbot_CopInvade()
+    if not whereToSpawn then
+        supercopNextbot_CopCanInvade()
+
+    end
     if not whereToSpawn then return end
     local cop = ents.Create( "sb_advanced_nextbot_terminator_hunter_supercop" )
     if not IsValid( cop ) then return end
@@ -103,6 +107,8 @@ function supercopNextbot_CopInvade()
         supercopWarn()
 
     end )
+
+    print( "Supercop Spawned: " .. Cop )
 
     return cop
 
@@ -131,7 +137,7 @@ if theGamemode == "terrortown" then
             if chance <= 0 then return end
 
             if doneInvade and oncePerMap:GetBool() then
-                PrintMessage( HUD_PRINTCONSOLE, msgPrefix .. "LOG: Supercop tried to invade twice in one map. blocked by convar 'supercop_nextbot_ttt_invadeonce'" )
+                PrintMessage( HUD_PRINTCONSOLE, msgPrefix .. "LOG: Supercop tried to invade on round start twice in one map. blocked by convar 'supercop_nextbot_ttt_invadeonce'" )
                 return
 
             end
@@ -139,7 +145,7 @@ if theGamemode == "terrortown" then
             local rand = math.random( 1, 100 )
             -- if rand ends up above chance, do not invade
             if chance ~= 100 and rand >= chance then
-                PrintMessage( HUD_PRINTCONSOLE, msgPrefix .. "LOG: Supercop did not invade. \nRoll: " .. rand .. "\nRequired: < " .. chance )
+                PrintMessage( HUD_PRINTCONSOLE, msgPrefix .. "LOG: Supercop did not invade on round start. \nRoll: " .. rand .. "\nRequired: < " .. chance )
                 return
 
             end
