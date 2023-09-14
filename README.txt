@@ -4,7 +4,7 @@ Supercop, invades games, by Straw W Wagen.
 Requires the Terminator Nextbot.
 
 Convars
-  Spawn protection, Bot spawns at player spawnpoints, so this is needed.
+  Spawn protection. ( Bot spawns at player spawnpoints, so this is needed. )
   supercop_nextbot_spawnprot_copspawn    Bot won't shoot until it's been alive for this long
   supercop_nextbot_spawnprot_ply         Don't shoot players until they've been alive for this long.
 
@@ -15,12 +15,15 @@ Convars
 
   Anything non-ttt
   supercop_nextbot_generic_invasionchance    Chance for supercop to invade, rolled once every minute, 0 never spawns, 100, always.
-  supercop_nextbot_generic_invasionlength    How long in minutes, will supercop invade for? 0 to never despawn.
+  supercop_nextbot_generic_invasionlength    How long in minutes, will supercop invade for? 0 for the invasion to never end.
 
   Other
   supercop_nextbot_jog                 Should supercop jog
   supercop_nextbot_do_prints           Do supercop prints?
   supercop_nextbot_do_invadingalarm    Do manhack alarm when spawned?
+
+  supercop_nextbot_do_navpatcher       Do supercop navpatcher? Fixes supercop not being able to use some stairs.
+  supercop_nextbot_do_navsave          If navpatcher ran, save the navmesh after supercop is removed?
 
 Global Funcs
   supercopNextbot_CopCanInvade()    Finds a spot for supercop to spawn, and if there is none, or there's already an invading supercop, or there's no navmesh, returns false.
@@ -30,3 +33,4 @@ Global Funcs
 Hooks
   supercop_nextbot_blockinvasion         No args. Return true to block supercopNextbot_CopCanInvade from returning true.
   supercop_nextbot_successfulinvasion    No args, runs after invasion succeeds and supercop is spawned.
+  supercop_nextbot_removed               No args, runs after bot is sucessfully removed via supercopNextbot_Remove.
