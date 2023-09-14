@@ -20,6 +20,7 @@ Convars
   Other
   supercop_nextbot_jog                 Should supercop jog
   supercop_nextbot_do_prints           Do supercop prints?
+  supercop_nextbot_do_logs             Do supercop console |LOG|s?
   supercop_nextbot_do_invadingalarm    Do manhack alarm when spawned?
 
   supercop_nextbot_do_navpatcher       Do supercop navpatcher? Fixes supercop not being able to use some stairs.
