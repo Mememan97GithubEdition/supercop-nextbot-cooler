@@ -18,13 +18,13 @@ Convars
   supercop_nextbot_generic_invasionlength    How long in minutes, will supercop invade for? 0 for the invasion to never end.
 
   Other
-  supercop_nextbot_jog                 Should supercop jog
-  supercop_nextbot_do_prints           Do supercop prints?
-  supercop_nextbot_do_logs             Do supercop console |LOG|s?
-  supercop_nextbot_do_invadingalarm    Do manhack alarm when spawned?
+  supercop_nextbot_jog                     Should supercop jog
+  supercop_nextbot_server_prints           Do supercop prints?
+  supercop_nextbot_server_logs             Do supercop console |LOG|s?
+  supercop_nextbot_server_invadingalarm    Do manhack alarm when spawned?
 
-  supercop_nextbot_do_navpatcher       Do supercop navpatcher? Fixes supercop not being able to use some stairs.
-  supercop_nextbot_do_navsave          If navpatcher ran, save the navmesh after supercop is removed?
+  supercop_nextbot_server_navpatcher       Do supercop navpatcher? Fixes supercop not being able to use some stairs.
+  supercop_nextbot_server_navsave          If navpatcher ran, save the navmesh after supercop is removed?
 
 Global Funcs
   supercopNextbot_CopCanInvade()    Finds a spot for supercop to spawn, and if there is none, or there's already an invading supercop, or there's no navmesh, returns false.
