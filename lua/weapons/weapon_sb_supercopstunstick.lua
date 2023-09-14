@@ -33,7 +33,6 @@ local function SparkEffect( SparkPos )
     Sparks:SetScale( 1 )
     Sparks:SetRadius( 6 )
     util.Effect( "Sparks", Sparks )
-    print( SparkPos )
 
 end
 
@@ -45,7 +44,6 @@ local function stickEffect( effectPos, normal, scale )
     effect:SetRadius( 6 * scale )
     effect:SetNormal( normal )
     util.Effect( "StunstickImpact", effect )
-    print( effectPos )
 
 end
 
