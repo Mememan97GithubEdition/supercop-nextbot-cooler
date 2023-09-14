@@ -31,8 +31,18 @@ local function hasNavmesh()
 
 end
 
+local logPrefix = "[Supercop Nextbot|LOG|] "
+local doLogs = CreateConVar( "supercop_nextbot_server_logs", 1, bit.bor( FCVAR_ARCHIVE ), "Do supercop console |LOG|s?", 0, 1 )
+local function supercopLog( log )
+    if doLogs:GetBool() ~= true then return end
+    local logAppended = logPrefix .. log
+
+    print( logAppended )
+
+end
+
 local msgPrefix = "[Supercop Nextbot] "
-local doPrints = CreateConVar( "supercop_nextbot_do_prints", 1, bit.bor( FCVAR_ARCHIVE ), "Do supercop chat & hud prints?", 0, 1 )
+local doPrints = CreateConVar( "supercop_nextbot_server_prints", 1, bit.bor( FCVAR_ARCHIVE ), "Do supercop chat & hud prints?", 0, 1 )
 
 local function supercopMessage( message )
     if doPrints:GetBool() ~= true then return end
@@ -47,7 +57,7 @@ end
 --globul
 supercop_nextbot_copThatExists = nil
 
-local doWarnAlarm = CreateConVar( "supercop_nextbot_do_invadingalarm", 1, bit.bor( FCVAR_ARCHIVE ), "Do manhack alarm when spawned?", 0, 1 )
+local doWarnAlarm = CreateConVar( "supercop_nextbot_server_invadingalarm", 1, bit.bor( FCVAR_ARCHIVE ), "Do manhack alarm when spawned?", 0, 1 )
 local function supercopWarn()
     if doWarnAlarm:GetBool() ~= true then return end
     local filterAllPlayers = RecipientFilter()
@@ -63,7 +73,7 @@ end
 
 function supercopNextbot_CopCanInvade()
     if not hasNavmesh() then
-        print( "supercopNextbot_CopCanInvade: No navmesh, Generate/install one." )
+        supercopLog( "supercopNextbot_CopCanInvade: No navmesh, Generate/install one." )
         return false
 
     end
@@ -72,7 +82,7 @@ function supercopNextbot_CopCanInvade()
 
     setupCopRandomSpawnpoint()
     if not whereToSpawn then
-        print( "supercopNextbot_CopCanInvade: Navmesh doesn't reach any map spawnpoints." )
+        supercopLog( "supercopNextbot_CopCanInvade: Navmesh doesn't reach any map spawnpoints." )
         return false
 
     end
@@ -84,17 +94,49 @@ function supercopNextbot_CopCanInvade()
 end
 
 local invadedMessages = {
-    "Supercop has invaded, hide your contraband...",
-    "Supercop is on the beat, watch out tax evaders...",
-    "Supercop has invaded, jaywalkers beware...",
-    "Supercop has invaded. Time to pay your parking tickets...",
-    "Supercop has invaded. Shouldn't have downloaded that car...",
-    "Supercop has invaded. Litterers, think twice...",
+    "Supercop has invaded, jaywalkers BEware...",
+    "Supercop has invaded.... Shouldn't have downloaded that car...",
     "Supercop is on duty. It's not illegal if he doesn't catch you...",
     "Supercop has invaded, so you might want to stick to the speed limit...",
-    "Supercop has invaded, so reconsider your love for graffiti...",
-    "Supercop has invaded - it's a bad day for unconventional yard sales...",
-    "Supercop has invaded, maybe rethink the unauthorized lemonade stand...",
+    "Supercop has entered the server. The physics gun isn't mightier than his law...",
+    "Supercop has landed. Familiar with the term 'RDM', right?",
+    "Supercop has invaded. Remember folks, fall damage is a crime...",
+    "Supercop has invaded. Propsurf won't save you...",
+    "Supercop has invaded. Get to the trenches!",
+    "Supercop has invaded. Random death match? More like death penalty...",
+    "Supercop has invaded - hope your dupes are within acceptable parameters...",
+    "Supercop has invaded. No more spawning in 1000 watermelons...",
+    "Supercop is on duty. 'Friendly fire' just became a felony...",
+    "Supercop has invaded, and he's going to fight RDM with RDM...",
+    "Supercop is laying down the law, and propsurf gets the Death penalty.",
+    "Supercop has rolled up. And he doesn't care about \"R D M\".",
+    "Supercop's lua has started. Problem is, you're overflowing his stack.",
+    "Supercop's invading, Better beg the admins to remove him...",
+    "Supercop's invading, Deathmatch is gonna get alot less random...",
+    "Supercop's invading, And he doesn't read the rules...",
+    "Supercop has invaded. His secret weapon? He read the rules...",
+    "Supercop has invaded. His secret weapon? He paid the admins for VIP...",
+    "Supercop has invaded. His secret weapon? He slipped the admins a 20...",
+    "Supercop has invaded. GET TO THE ELEVATORS!",
+    "Supercop has invaded. Better pray the ladders aren't navmeshed!",
+    "Supercop has invaded. Better pray this navmesh is unpolished...",
+    "Supercop has invaded. He's got a good feeling about this...",
+    "Supercop has invaded. Get to to the bathtub car!!!",
+    "Supercop has invaded. He's friendly!",
+    "Supercop has arrived, hope your contraptions don't violate any health and safety codes...",
+    "Supercop has logged in... who needs auto-bans when you've got the law?",
+    "Supercop has invaded. He's always behind you...",
+    "Supercop has arrived. No insurance on your flying bathtub? That's a ticket...",
+    "Supercop has invaded. Beware: He knows where you've hidden your stash...",
+    "Supercop is on deck. Your tool gun won't rewrite the rule book...",
+    "Supercop is circulating. Your prop block won't do you much good now...",
+    "Supercop has invaded. Shouldn't have cheated those achievements in...",
+    "Supercop's in the server. Launching off into space is a severe violation...",
+    "Supercop is in pursuit. Rule-breaking exploits are his beverage of choice...",
+    "Supercop has invaded. Better bolt your doors, pray your props aren't breakable...",
+    "Supercop is online. Now's not the time to test the limits of your contraption...",
+    "Supercop has entered. Tricks are nice, but can't trick a bullet...",
+    "Supercop has arrived. Don't think being a ghost will spare you from his wrath..."
 
 }
 
@@ -104,7 +146,7 @@ function supercopNextbot_CopInvade()
     if not whereToSpawn then return end
     local cop = ents.Create( "sb_advanced_nextbot_terminator_hunter_supercop" )
     if not IsValid( cop ) then
-        print( "Supercop Failed to spawn." )
+        supercopLog( "Supercop Failed to spawn." )
         return
 
     end
@@ -114,23 +156,23 @@ function supercopNextbot_CopInvade()
     supercop_nextbot_copThatExists = cop
 
     hook.Run( "supercop_nextbot_successfulinvasion" )
-    supercopMessage( invadedMessages[ math.random( 1, #invadedMessages ) ] )
     timer.Simple( 0, function()
         supercopWarn()
 
     end )
 
-    print( "Supercop Spawned:", cop )
+    supercopLog( "Supercop Spawned:", cop )
 
     return cop
 
 end
 
 function supercopNextbot_Remove()
-    if not IsValid( supercop_nextbot_copThatExists ) then print( "No supercop to remove." ) return end
+    if not IsValid( supercop_nextbot_copThatExists ) then supercopLog( "No supercop to remove." ) return end
 
-    supercopMessage( "Supercop has been sent to the void..." )
     SafeRemoveEntity( supercop_nextbot_copThatExists )
+
+    hook.Run( "supercop_nextbot_removed" )
 
 end
 
@@ -164,7 +206,7 @@ if theGamemode == "terrortown" then
             end
 
             if doneInvade and oncePerMap:GetBool() then
-                print( msgPrefix .. "LOG: Supercop tried to invade on round start twice in one map.\nBlocked by convar 'supercop_nextbot_ttt_invadeonce'" )
+                supercopLog( "Supercop tried to invade on round start twice in one map.\nBlocked by convar 'supercop_nextbot_ttt_invadeonce'" )
                 return
 
             end
@@ -172,7 +214,7 @@ if theGamemode == "terrortown" then
             local roll = math.random( 0, 100 )
             -- if roll ends up above chance, do not invade
             if roll >= chance then -- don't spawn
-                print( msgPrefix .. "LOG: Supercop invasion on round start, blocked by random chance.\nRoll: " .. roll .. "\nRequired: < " .. chance .. "\nChange supercop_nextbot_ttt_invadechanceonroundstart to 100, to always invade." )
+                supercopLog( "Supercop invasion on round start, blocked by random chance.\nRoll: " .. roll .. "\nRequired: < " .. chance .. "\nChange supercop_nextbot_ttt_invadechanceonroundstart to 100, to always invade." )
                 return
 
             end
@@ -182,7 +224,9 @@ if theGamemode == "terrortown" then
 
             if not IsValid( cop ) then return end
 
-            print( msgPrefix .. "LOG: Supercop has auto-invaded.\nRun the command: \"supercop_nextbot_ttt_invadechanceonroundstart 0\" To disable TTT auto-invasion" )
+            -- valid invade, tell players!
+            supercopMessage( invadedMessages[ math.random( 1, #invadedMessages ) ] )
+            supercopLog( "Supercop has auto-invaded.\nRun the command: \"supercop_nextbot_ttt_invadechanceonroundstart 0\" To disable TTT auto-invasion" )
 
             doneInvade = true
 
@@ -204,6 +248,7 @@ else
         if not hasNavmesh() then
             if doneNoNavmeshPrint then return end
             doneNoNavmeshPrint = true
+            -- send this to players in session because they're probably not gonna check console
             supercopMessage( "Supercop cannot invade... No navmesh." )
             return
 
@@ -214,7 +259,10 @@ else
         local cop = supercopNextbot_CopInvade()
 
         if not IsValid( cop ) then return end
-        print( msgPrefix .. "LOG: Supercop has invaded.\nRun the command: \"supercop_nextbot_generic_invasionchance 0\" To disable auto-invasion" )
+
+        -- valid invade, tell players!
+        supercopMessage( invadedMessages[ math.random( 1, #invadedMessages ) ] )
+        supercopLog( "Supercop has invaded.\nRun the command: \"supercop_nextbot_generic_invasionchance 0\" To disable auto-invasion" )
 
         local spawnedTime = CurTime()
         cop.spawnedTime = spawnedTime
@@ -225,12 +273,25 @@ else
             if supercop_nextbot_copThatExists.spawnedTime ~= spawnedTime then return end
 
             supercopNextbot_Remove()
+            supercopMessage( "Supercop has been sent to the void..." )
 
         end )
     end )
 end
 
+local _IsValid = IsValid
+
 hook.Add( "CanTool", "supercop_nextbot_blocktooling", function( _, tr )
-    if tr.Hit and IsValid( tr.Entity ) and tr.Entity == supercop_nextbot_copThatExists then return false end
+    if tr.Hit and _IsValid( tr.Entity ) and tr.Entity == supercop_nextbot_copThatExists then return false end
+
+end )
+
+hook.Add( "PhysgunPickup", "supercop_nextbot_blockphysgun", function( _, pickedUp )
+    if _IsValid( pickedUp ) and pickedUp == supercop_nextbot_copThatExists then return false end
+
+end )
+
+hook.Add( "CanProperty", "supercop_nextbot_blockcontext", function( _, _, toProperty )
+    if _IsValid( toProperty ) and toProperty == supercop_nextbot_copThatExists then return false end
 
 end )

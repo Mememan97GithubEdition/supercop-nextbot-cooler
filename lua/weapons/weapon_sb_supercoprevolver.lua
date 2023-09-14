@@ -51,7 +51,7 @@ function SWEP:PrimaryAttack()
     if not self:CanPrimaryAttack() then return end
 
     local owner = self:GetOwner()
-    owner.SupercopBlockShooting = CurTime() + 0.75
+    owner.SupercopBlockShooting = CurTime() + 1.5
     self:SetWeaponHoldType( "revolver" )
 
     owner:FireBullets( {
@@ -88,6 +88,18 @@ function SWEP:PrimaryAttack()
     owner.SuperGunSound = CreateSound( owner, "Weapon_357.Single", filterAllPlayers )
     owner.SuperGunSound:PlayEx( 1, 88 )
 
+    timer.Simple( 0.05, function()
+        if not IsValid( self ) then return end
+        if not IsValid( owner ) then return end
+        -- ECHO!
+        local superGunEcho = CreateSound( self, "Weapon_357.Single", filterAllPlayers )
+        superGunEcho:SetDSP( 22 )
+        superGunEcho:SetSoundLevel( 120 )
+        superGunEcho:PlayEx( 0.6, math.Rand( 55, 60 ) )
+
+        sound.EmitHint( SOUND_COMBAT, owner:GetShootPos(), 6000, 1, owner )
+
+    end )
 end
 
 function SWEP:DoMuzzleFlash()
@@ -139,16 +151,17 @@ function SWEP:CanBePickedUpByNPCs()
 end
 
 function SWEP:GetNPCBulletSpread( prof )
-    local spread = { 2.5, 2, 1.5, 1, 0.5 }
+    local base = 0
+    local spread = { base + 2, base + 1.5, base + 1, base + 0.5, base }
     return spread[ prof + 1 ]
 end
 
 function SWEP:GetNPCBurstSettings()
-    return 1,1,0.75
+    return 1,1,1.5
 end
 
 function SWEP:GetNPCRestTimes()
-    return 0.75,0.75
+    return 1.5,1.5
 end
 
 function SWEP:GetCapabilities()

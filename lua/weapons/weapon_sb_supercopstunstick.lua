@@ -20,16 +20,33 @@ SWEP.HitMask = MASK_SOLID
 
 SWEP.terminator_IgnoreWeaponUtility = true
 
-local function SparkEffect( SparkPos, scale )
-    timer.Simple( 0, function() -- wow wouldnt it be cool if effects worked on the first tick personally i think that would be really cool
-        local Sparks = EffectData()
-        Sparks:SetOrigin( SparkPos )
-        Sparks:SetMagnitude( 2 )
-        Sparks:SetScale( 1 * scale )
-        Sparks:SetRadius( 6 * scale )
-        util.Effect( "Sparks", Sparks )
+local function LockBustSound( ent )
+    ent:EmitSound( "doors/vent_open1.wav", 100, 80, 1, CHAN_STATIC )
+    ent:EmitSound( "physics/metal/metal_solid_strain3.wav", 100, 200, 1, CHAN_STATIC )
 
-    end )
+end
+
+local function SparkEffect( SparkPos )
+    local Sparks = EffectData()
+    Sparks:SetOrigin( SparkPos )
+    Sparks:SetMagnitude( 2 )
+    Sparks:SetScale( 1 )
+    Sparks:SetRadius( 6 )
+    util.Effect( "Sparks", Sparks )
+    print( SparkPos )
+
+end
+
+local function stickEffect( effectPos, normal, scale )
+    local effect = EffectData()
+    effect:SetOrigin( effectPos )
+    effect:SetMagnitude( 2 )
+    effect:SetScale( 1 * scale )
+    effect:SetRadius( 6 * scale )
+    effect:SetNormal( normal )
+    util.Effect( "StunstickImpact", effect )
+    print( effectPos )
+
 end
 
 function SWEP:Initialize()
@@ -44,9 +61,6 @@ end
 function SWEP:CanSecondaryAttack()
     return false
 end
-
-local MAX_TRACE_LENGTH    = 75
-local vec3_origin        = vector_origin
 
 function SWEP:PrimaryAttack()
     if not self:CanPrimaryAttack() then return end
@@ -69,8 +83,10 @@ function SWEP:PrimaryAttack()
 end
 
 local damageHull = Vector( 10, 10, 8 )
+local lockOffset = Vector( 0, 42.6, -10 )
 
 function SWEP:DoDamage()
+    if not SERVER then return end
     local owner = self:GetOwner()
     local tr = util.TraceLine( {
         start = owner:GetShootPos(),
@@ -90,7 +106,6 @@ function SWEP:DoDamage()
         } )
     end
     if tr.Hit then
-        owner:EmitSound( Sound( "Weapon_StunStick.Melee_Hit" ) )
         local dmg = DamageInfo()
         dmg:SetDamage( 50000 )
         dmg:SetDamageForce( owner:GetAimVector() * 15000 )
@@ -99,10 +114,40 @@ function SWEP:DoDamage()
         dmg:SetInflictor( self )
         tr.Entity:TakeDamageInfo( dmg )
 
-        SparkEffect( tr.HitPos, 1 )
+        stickEffect( tr.HitPos, tr.HitNormal, 1 )
 
         util.ScreenShake( owner:GetPos(), 10, 10, 0.25, 1000, true )
 
+        if tr.Entity:GetInternalVariable( "m_bLocked" ) == true then
+            tr.Entity:Fire( "unlock", "", .01 )
+            SparkEffect( tr.Entity:GetPos() + -lockOffset )
+            LockBustSound( tr.Entity )
+
+        end
+
+        local filterAllPlayers = RecipientFilter()
+        filterAllPlayers:AddAllPlayers()
+
+        if owner.stunStickSound then
+            owner.stunStickSound:Stop()
+
+        end
+
+        owner.stunStickSound = CreateSound( owner, "Weapon_StunStick.Melee_Hit", filterAllPlayers )
+        owner.stunStickSound:PlayEx( 1, 88 )
+
+        timer.Simple( 0.05, function()
+            if not IsValid( self ) then return end
+            if not IsValid( owner ) then return end
+            -- ECHO!
+            local stunStickEcho = CreateSound( self, "Weapon_StunStick.Melee_Hit", filterAllPlayers )
+            stunStickEcho:SetDSP( 22 )
+            stunStickEcho:SetSoundLevel( 100 )
+            stunStickEcho:PlayEx( 0.6, math.Rand( 55, 60 ) )
+
+            sound.EmitHint( SOUND_COMBAT, owner:GetShootPos(), 4000, 1, owner )
+
+        end )
     end
     util.ScreenShake( owner:GetPos(), 2.5, 10, 0.45, 4000, true )
 
@@ -123,7 +168,8 @@ function SWEP:Equip()
 
     end
     if not rHandId then return end
-    SparkEffect( self:GetOwner():GetAttachment( rHandId ).Pos, 0.25 )
+    local pos = self:GetOwner():GetAttachment( rHandId ).Pos
+    stickEffect( pos, VectorRand(), 0.25 )
 
 end
 
