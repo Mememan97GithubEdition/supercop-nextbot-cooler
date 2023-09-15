@@ -859,24 +859,35 @@ function ENT:DoTasks()
                         local score = math.Round( math.Rand( 0.90, 1.10 ), 3 )
 
                         local heightChange = area1:ComputeAdjacentConnectionHeightChange( area2 )
+                        local wander = scoreData.wander
 
                         if heightChange > scoreData.self.JumpHeight then
-                            score = score * 0.05
+                            score = score * 0.5
                             --debugoverlay.Cross( area2Center, 10, 10, color_white, true )
 
-                        elseif heightChange < -( scoreData.self.JumpHeight / 2 ) and scoreData.wander then
+                        elseif wander and ( heightChange < -( scoreData.self.JumpHeight / 2 ) ) then
+                            score = score * 0.5
+
+                        end
+
+                        if wander and scoreData.self.walkedAreas[ area2:GetID() ] then
                             score = score * 0.05
 
                         end
 
-                        if scoreData.wander and scoreData.self.walkedAreas[ area2:GetID() ] then
-                            score = score * 0.05
+                        if area2:IsUnderwater() then
+                            if wander then
+                                score = score * 0.05
 
+                            else
+                                score = score * 0.6
+
+                            end
                         end
 
                         local firstWasGood
 
-                        if score >= 0.9 and not scoreData.wander then
+                        if score >= 0.9 and not wander then
                             local firstClearOrBreakable, _, firstJustClear = self:ClearOrBreakable( area2Center + scoreData.areaCenterOffset, scoreData.enemysShootPos )
 
                             if firstJustClear then
@@ -900,7 +911,7 @@ function ENT:DoTasks()
                             end
                         end
 
-                        if not scoreData.wander and area2Center.z > scoreData.myShootPos.z then
+                        if not wander and area2Center.z > scoreData.myShootPos.z then
                             score = score * 4
 
                         end
@@ -933,7 +944,7 @@ function ENT:DoTasks()
 
                 local farFromPathEnd = self:GetPath():GetEnd():DistToSqr( self:GetPos() ) > 200^2
                 local blockShoot = self:primaryPathIsValid() and farFromPathEnd and self.DistToEnemy > self.SupercopUnequipRevolverDist
-                local pathResult = self:ControlPath2( blockShoot )
+                local pathResult = self:ControlPath2( blockShoot or data.wander )
 
                 if pathResult == true and not data.endedPath then
                     data.nextPath = _CurTime() + math.Rand( 2, 4 )

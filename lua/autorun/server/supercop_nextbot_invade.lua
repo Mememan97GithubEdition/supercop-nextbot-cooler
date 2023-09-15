@@ -15,6 +15,7 @@ local whereToSpawn = nil
 
 local function setupCopRandomSpawnpoint()
     if #supercop_nextbot_copSpawnpoints <= 0 then return end
+    table.Shuffle( supercop_nextbot_copSpawnpoints )
     for _, potentialSpawn in ipairs( supercop_nextbot_copSpawnpoints ) do
         local area = navmesh.GetNearestNavArea( potentialSpawn, true, 400, false, true, -2 )
         if not area or not area.IsValid or not area:IsValid() then continue end
@@ -97,16 +98,17 @@ local invadedMessages = {
     "Supercop has invaded, jaywalkers BEware...",
     "Supercop has invaded.... Shouldn't have downloaded that car...",
     "Supercop is on duty. It's not illegal if he doesn't catch you...",
-    "Supercop has invaded, so you might want to stick to the speed limit...",
+    "Supercop has invaded, should've stuck to the speed limit...",
     "Supercop has entered the server. The physics gun isn't mightier than his law...",
     "Supercop has landed. Familiar with the term 'RDM', right?",
-    "Supercop has invaded. Remember folks, fall damage is a crime...",
+    "Supercop has invaded. Should've read each of the 42 rules...",
+    "Supercop has invaded. Remember folks, unlicensed fall damage is a crime...",
     "Supercop has invaded. Propsurf won't save you...",
-    "Supercop has invaded. Get to the trenches!",
+    "Supercop has invaded. Get to the models/props_phx/misc/bunker01.mdl!!",
     "Supercop has invaded. Random death match? More like death penalty...",
-    "Supercop has invaded - hope your dupes are within acceptable parameters...",
-    "Supercop has invaded. No more spawning in 1000 watermelons...",
-    "Supercop is on duty. 'Friendly fire' just became a felony...",
+    "Supercop has invaded - Should've kept your dupes up to spec...",
+    "Supercop has invaded. Why? Too many watermelons...",
+    "Supercop is on duty. 'Friendly fire' just became a 'friendly' felony...",
     "Supercop has invaded, and he's going to fight RDM with RDM...",
     "Supercop is laying down the law, and propsurf gets the Death penalty.",
     "Supercop has rolled up. And he doesn't care about \"R D M\".",
@@ -116,27 +118,29 @@ local invadedMessages = {
     "Supercop's invading, And he doesn't read the rules...",
     "Supercop has invaded. His secret weapon? He read the rules...",
     "Supercop has invaded. His secret weapon? He paid the admins for VIP...",
-    "Supercop has invaded. His secret weapon? He slipped the admins a 20...",
+    "Supercop has invaded. His secret weapon? He slipped the admins a crisp 20...",
     "Supercop has invaded. GET TO THE ELEVATORS!",
     "Supercop has invaded. Better pray the ladders aren't navmeshed!",
     "Supercop has invaded. Better pray this navmesh is unpolished...",
     "Supercop has invaded. He's got a good feeling about this...",
+    "Supercop has invaded. His coffee was great this morning!",
     "Supercop has invaded. Get to to the bathtub car!!!",
     "Supercop has invaded. He's friendly!",
     "Supercop has arrived, hope your contraptions don't violate any health and safety codes...",
-    "Supercop has logged in... who needs auto-bans when you've got the law?",
+    "Supercop has invaded. Hope your builds are up to OSHA standards...",
+    "Supercop has logged in... who needs ULX when you have bullets?",
     "Supercop has invaded. He's always behind you...",
     "Supercop has arrived. No insurance on your flying bathtub? That's a ticket...",
-    "Supercop has invaded. Beware: He knows where you've hidden your stash...",
+    "Supercop has invaded. Beware: He knows where you've hidden your stash of garry NFTS...",
+    "Supercop has invaded. Beware: GMAN ratted out your NFTS of garry's luscious locks...",
     "Supercop is on deck. Your tool gun won't rewrite the rule book...",
-    "Supercop is circulating. Your prop block won't do you much good now...",
+    "Supercop is on duty. Your prop block won't do you much good now...",
     "Supercop has invaded. Shouldn't have cheated those achievements in...",
     "Supercop's in the server. Launching off into space is a severe violation...",
-    "Supercop is in pursuit. Rule-breaking exploits are his beverage of choice...",
+    "Supercop is in pursuit. Cold, hard justice is his beverage of choice...",
     "Supercop has invaded. Better bolt your doors, pray your props aren't breakable...",
-    "Supercop is online. Now's not the time to test the limits of your contraption...",
+    "Supercop is online. Best hope your contraption can outrun the law...",
     "Supercop has entered. Tricks are nice, but can't trick a bullet...",
-    "Supercop has arrived. Don't think being a ghost will spare you from his wrath..."
 
 }
 
@@ -211,10 +215,10 @@ if theGamemode == "terrortown" then
 
             end
 
-            local roll = math.random( 0, 100 )
+            local roll = math.Rand( 0, 100 )
             -- if roll ends up above chance, do not invade
             if roll >= chance then -- don't spawn
-                supercopLog( "Supercop invasion on round start, blocked by random chance.\nRoll: " .. roll .. "\nRequired: < " .. chance .. "\nChange supercop_nextbot_ttt_invadechanceonroundstart to 100, to always invade." )
+                supercopLog( "Supercop invasion on round start, blocked by random chance.\nRoll: " .. math.Round( roll, 3 ) .. "\nRequired: < " .. chance .. "\nChange supercop_nextbot_ttt_invadechanceonroundstart to 100, to always invade." )
                 return
 
             end
@@ -233,7 +237,7 @@ if theGamemode == "terrortown" then
         end )
     end )
 else
-    local spawnChance       = CreateConVar( "supercop_nextbot_generic_invasionchance",   2, bit.bor( FCVAR_ARCHIVE ), "Chance for supercop to invade non-ttt sessions, rolled once every minute, 0 never spawns, 100, always.", 0, 100 )
+    local spawnChance       = CreateConVar( "supercop_nextbot_generic_invasionchance",   3, bit.bor( FCVAR_ARCHIVE ), "Chance for supercop to invade non-ttt sessions, rolled once every minute, 0 never spawns, 100, always.", 0, 100 )
     local invasionLength    = CreateConVar( "supercop_nextbot_generic_invasionlength",   15, bit.bor( FCVAR_ARCHIVE ), "How long in minutes, will supercop invade for? 0 to never despawn.", 0, 1000 )
 
     -- remove timer for editing file
@@ -254,7 +258,7 @@ else
 
         end
 
-        if math.random( 0, 100 ) >= chance then return end
+        if math.Rand( 0, 100 ) >= chance then return end
         if not supercopNextbot_CopCanInvade() then return end
         local cop = supercopNextbot_CopInvade()
 
