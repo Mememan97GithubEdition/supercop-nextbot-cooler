@@ -815,6 +815,9 @@ function ENT:DoTasks()
                 if not data.wander and not goodEnemy then
                     data.wander = true
 
+                elseif data.wander and goodEnemy then
+                    data.wander = nil
+
                 end
 
                 local endCanSeeEnemy = self:primaryPathIsValid() and IsValid( enemy ) and self:ClearOrBreakable( self:GetPath():GetEnd() + data.offsetToShootPos, self:EntShootPos( enemy ) )
