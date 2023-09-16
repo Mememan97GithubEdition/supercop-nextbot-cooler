@@ -271,6 +271,12 @@ else
         local spawnedTime = CurTime()
         cop.spawnedTime = spawnedTime
 
+        if invasionLength:GetInt() < 1 then
+            supercopLog( "\"Infinite\" invasion ENABLED!" )
+            return
+
+        end
+
         timer.Simple( 60 * invasionLength:GetInt(), function()
             if not IsValid( supercop_nextbot_copThatExists ) then return end
             if not supercop_nextbot_copThatExists.spawnedTime then return end
