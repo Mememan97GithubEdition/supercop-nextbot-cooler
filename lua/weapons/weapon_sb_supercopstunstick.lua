@@ -151,7 +151,7 @@ function SWEP:DoDamage()
             local punchForce = owner:GetAimVector()
             if IsValid( phys ) then
                 punchForce = punchForce * math.Clamp( phys:GetMass() / 500, 0.25, 1 )
-                punchForce = punchForce * 400000
+                punchForce = punchForce * 100000
                 phys:ApplyForceOffset( punchForce, tr.HitPos )
 
             end
