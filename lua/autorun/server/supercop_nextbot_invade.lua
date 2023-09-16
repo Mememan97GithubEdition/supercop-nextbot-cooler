@@ -124,8 +124,17 @@ local invadedMessages = {
     "Supercop has invaded. Better pray this navmesh is unpolished...",
     "Supercop has invaded. He's got a good feeling about this...",
     "Supercop has invaded. His coffee was great this morning!",
+    "Supercop has invaded. His coffee tasted like mine tailings...",
+    "Supercop has invaded. His coffee reminded him of his childhood!",
+    "Supercop has invaded. His coffee reminded him of his adulthood...",
+    "Supercop has invaded. His coffee is single origin!",
+    "Supercop has invaded. His coffee pairs great with doughnuts!",
+    "Supercop has invaded. His coffee tasted like iron...",
+    "Supercop has invaded. His coffee was decaf...",
+    "Supercop has invaded. His coffee creamer was spoiled...",
     "Supercop has invaded. Get to to the bathtub car!!!",
     "Supercop has invaded. He's friendly!",
+    "Supercop has invaded. You better hope he didn't miss the last doughnut...",
     "Supercop has arrived, hope your contraptions don't violate any health and safety codes...",
     "Supercop has invaded. Hope your builds are up to OSHA standards...",
     "Supercop has logged in... who needs ULX when you have bullets?",
@@ -133,16 +142,34 @@ local invadedMessages = {
     "Supercop has arrived. No insurance on your flying bathtub? That's a ticket...",
     "Supercop has invaded. Beware: He knows where you've hidden your stash of garry NFTS...",
     "Supercop has invaded. Beware: GMAN ratted out your NFTS of garry's luscious locks...",
-    "Supercop is on deck. Your tool gun won't rewrite the rule book...",
+    "Supercop is on deck. Your tool gun won't change the law...",
+    "Supercop is on deck. Your toolgun isn't strong enough...",
+    "Supercop is on duty. Sorry, your toolgun needs to be version 25 or higher to remove him...",
+    "Supercop has invaded. Please insert card to upgrade your physics gun to version 2!",
+    "Supercop has invaded. Sorry, your physics gun is on the free plan...",
     "Supercop is on duty. Your prop block won't do you much good now...",
     "Supercop has invaded. Shouldn't have cheated those achievements in...",
-    "Supercop's in the server. Launching off into space is a severe violation...",
+    "Supercop's in the server. Your neighbors reported your very... classy \"spaceship\"...",
     "Supercop is in pursuit. Cold, hard justice is his beverage of choice...",
     "Supercop has invaded. Better bolt your doors, pray your props aren't breakable...",
     "Supercop is online. Best hope your contraption can outrun the law...",
     "Supercop has entered. Tricks are nice, but can't trick a bullet...",
+    "Supercop is in pursuit. His bodycam is off...",
+    "Supercop is in pursuit. His bodycam is \"out of battery\"...",
 
 }
+
+local invadedMessagesToPrint = {}
+
+local function supercopInvadedMessage()
+    if #invadedMessagesToPrint <= 1 then
+        invadedMessagesToPrint = table.Copy( invadedMessages )
+
+    end
+
+    return table.remove( invadedMessagesToPrint, math.random( 1, #invadedMessagesToPrint ) )
+
+end
 
 function supercopNextbot_CopInvade()
     if supercopNextbot_CopCanInvade() ~= true then return end
@@ -165,7 +192,7 @@ function supercopNextbot_CopInvade()
 
     end )
 
-    supercopLog( "Supercop Spawned:", cop )
+    supercopLog( "Supercop Spawned:", supercop_nextbot_copThatExists )
 
     return cop
 
@@ -187,7 +214,7 @@ local aiIgnorePlayers = GetConVar( "ai_ignoreplayers" )
 
 local theGamemode = engine.ActiveGamemode()
 if theGamemode == "terrortown" then
-    local spawnChance   = CreateConVar( "supercop_nextbot_ttt_invadechanceonroundstart",    15, bit.bor( FCVAR_ARCHIVE ), "Spawn chance on round start, 0 to never spawn, 100 to always spawn.", 0, 100 )
+    local spawnChance   = CreateConVar( "supercop_nextbot_ttt_invadechanceonroundstart",    10, bit.bor( FCVAR_ARCHIVE ), "Spawn chance on round start, 0 to never spawn, 100 to always spawn.", 0, 100 )
     local invadeDelay   = CreateConVar( "supercop_nextbot_ttt_invadedelay",                 15, bit.bor( FCVAR_ARCHIVE ), "How long after the round starts should supercop wait to invade, seconds.", 0, 60 * 20 )
     local oncePerMap    = CreateConVar( "supercop_nextbot_ttt_invadeonce",                  1, bit.bor( FCVAR_ARCHIVE ), "Only allow supercop to invade once per map.", 0, 1 )
 
@@ -229,7 +256,7 @@ if theGamemode == "terrortown" then
             if not IsValid( cop ) then return end
 
             -- valid invade, tell players!
-            supercopMessage( invadedMessages[ math.random( 1, #invadedMessages ) ] )
+            supercopMessage( supercopInvadedMessage() )
             supercopLog( "Supercop has auto-invaded.\nRun the command: \"supercop_nextbot_ttt_invadechanceonroundstart 0\" To disable TTT auto-invasion" )
 
             doneInvade = true
@@ -237,7 +264,7 @@ if theGamemode == "terrortown" then
         end )
     end )
 else
-    local spawnChance       = CreateConVar( "supercop_nextbot_generic_invasionchance",   3, bit.bor( FCVAR_ARCHIVE ), "Chance for supercop to invade non-ttt sessions, rolled once every minute, 0 never spawns, 100, always.", 0, 100 )
+    local spawnChance       = CreateConVar( "supercop_nextbot_generic_invasionchance",   2, bit.bor( FCVAR_ARCHIVE ), "Chance for supercop to invade non-ttt sessions, rolled once every minute, 0 never spawns, 100, always.", 0, 100 )
     local invasionLength    = CreateConVar( "supercop_nextbot_generic_invasionlength",   15, bit.bor( FCVAR_ARCHIVE ), "How long in minutes, will supercop invade for? 0 to never despawn.", 0, 1000 )
 
     -- remove timer for editing file
@@ -265,7 +292,7 @@ else
         if not IsValid( cop ) then return end
 
         -- valid invade, tell players!
-        supercopMessage( invadedMessages[ math.random( 1, #invadedMessages ) ] )
+        supercopMessage( supercopInvadedMessage() )
         supercopLog( "Supercop has invaded.\nRun the command: \"supercop_nextbot_generic_invasionchance 0\" To disable auto-invasion" )
 
         local spawnedTime = CurTime()

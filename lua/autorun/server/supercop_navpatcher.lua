@@ -152,8 +152,20 @@ local doNavSave = CreateConVar( "supercop_nextbot_server_navsave", 1, bit.bor( F
 
 local _IsValid = IsValid
 
+local function finishPatching()
+    if doNavSave:GetBool() ~= true then return end
+    if not donePatching then return end
+    donePatching = nil
+
+    navmesh.Save()
+end
+
 hook.Add( "Think", "supercop_nextbot_navpatcher", function()
-    if _IsValid( supercop_nextbot_copThatExists ) then
+    local validCop = _IsValid( supercop_nextbot_copThatExists )
+    if donePatching and not validCop then
+        finishPatching()
+
+    elseif validCop then
         if doPatching:GetBool() ~= true then return end
 
         -- never want this to spam errors, and i dont trust it
@@ -169,10 +181,6 @@ hook.Add( "Think", "supercop_nextbot_navpatcher", function()
 end )
 
 hook.Add( "supercop_nextbot_removed", "supercop_nextbot_savenavmesh", function()
-    if doNavSave:GetBool() ~= true then return end
-    if not donePatching then return end
-    donePatching = nil
-
-    navmesh.Save()
+    finishPatching()
 
 end )
