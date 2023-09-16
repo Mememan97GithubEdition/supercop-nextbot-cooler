@@ -117,7 +117,7 @@ local function navPatchingThink( ply )
     --print( plyPos2.z, currClosestPos.z, plyPos.z )
 
     -- needs terminator nextbot addon!
-    if not terminator_Extras.posCanSee( plyPos2, currClosestPos, MASK_SOLID_BRUSHONLY ) then return end
+    if not terminator_Extras.PosCanSee( plyPos2, currClosestPos, MASK_SOLID_BRUSHONLY ) then return end
 
     smartConnectionThink( oldArea, currArea )
     smartConnectionThink( currArea, oldArea )
