@@ -169,7 +169,15 @@ end
 
 local function blockDamage( damaged, _, damageInfo )
     if not damaged.IsTerminatorSupercop then return end
-    damageInfo:SetDamage( 0 )
+    local attacker = damageInfo:GetAttacker()
+    if IsValid( attacker ) and attacker ~= damaged and attacker:GetClass() == damaged:GetClass() then
+        damageInfo:ScaleDamage( 2 )
+
+    else
+        damageInfo:ScaleDamage( 0 )
+
+    end
+
 
     if not damageInfo:IsBulletDamage() then return end
     doRicsEnt( damaged )
@@ -180,7 +188,14 @@ end
 hook.Add( "ScaleNPCDamage", "supercop_nextbot_blockdamage", blockDamage )
 
 function ENT:OnTakeDamage( damageInfo )
-    damageInfo:ScaleDamage( 0 )
+    local attacker = damageInfo:GetAttacker()
+    if IsValid( attacker ) and attacker ~= self and attacker:GetClass() == self:GetClass() then 
+        damageInfo:ScaleDamage( 2 )
+
+    else
+        damageInfo:ScaleDamage( 0 )
+
+    end
 
     if not damageInfo:IsBulletDamage() then return end
     doRicsEnt( self )
@@ -367,6 +382,11 @@ hook.Add( "terminator_engagedenemywasbad", "supercop_killedenemy", function( sel
             end )
         else
             self:PlaySentence( playerDead )
+
+        end
+        -- killed other supercop, i am the the superior cop
+        if IsValid( enemyLost ) and enemyLost:GetClass() == self:GetClass() then
+            self:SetHealth( self:Health(), self:GetMaxHealth() / 2, self:GetMaxHealth() )
 
         end
     end

@@ -63,7 +63,7 @@ end
 function SWEP:PrimaryAttack()
     if not self:CanPrimaryAttack() then return end
 
-    self:SetNextPrimaryFire( CurTime() + 0.5 )
+    self:SetNextPrimaryFire( CurTime() + 0.25 )
     self:SetLastShootTime()
 
     if not SERVER then return end
@@ -86,6 +86,7 @@ local lockOffset = Vector( 0, 42.6, -10 )
 function SWEP:DoDamage()
     if not SERVER then return end
     local owner = self:GetOwner()
+    if not IsValid( owner ) then return end
     local tr = util.TraceLine( {
         start = owner:GetShootPos(),
         endpos = owner:GetShootPos() + owner:GetAimVector() * self.Range,
@@ -144,8 +145,17 @@ function SWEP:DoDamage()
             stunStickEcho:PlayEx( 0.6, math.Rand( 55, 60 ) )
 
             sound.EmitHint( SOUND_COMBAT, owner:GetShootPos(), 4000, 1, owner )
-
         end )
+        if IsValid( tr.Entity ) then
+            local phys = tr.Entity:GetPhysicsObject()
+            local punchForce = owner:GetAimVector()
+            if IsValid( phys ) then
+                punchForce = punchForce * math.Clamp( phys:GetMass() / 500, 0.25, 1 )
+                punchForce = punchForce * 400000
+                phys:ApplyForceOffset( punchForce, tr.HitPos )
+
+            end
+        end
     end
     util.ScreenShake( owner:GetPos(), 2.5, 10, 0.45, 4000, true )
 
@@ -195,7 +205,19 @@ function SWEP:GetNPCBurstSettings()
 end
 
 function SWEP:GetNPCRestTimes()
-    return 0.75,0.75
+
+    local owner = self:GetOwner()
+
+    local reallyMad = IsValid( owner ) and owner.IsReallyAngry and owner:IsReallyAngry()
+    local maxTime = 1
+    local minTime = 0.75
+    if reallyMad then
+        maxTime = 0.6
+        minTime = 0.5
+
+    end
+
+    return minTime, maxTime
 end
 
 function SWEP:GetCapabilities()
