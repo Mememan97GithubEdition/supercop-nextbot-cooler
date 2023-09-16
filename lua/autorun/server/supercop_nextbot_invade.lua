@@ -34,7 +34,8 @@ end
 
 local logPrefix = "[Supercop Nextbot|LOG|] "
 local doLogs = CreateConVar( "supercop_nextbot_server_logs", 1, bit.bor( FCVAR_ARCHIVE ), "Do supercop console |LOG|s?", 0, 1 )
-local function supercopLog( log )
+-- globul...
+function supercopNextbot_SupercopLog( log )
     if doLogs:GetBool() ~= true then return end
     local logAppended = logPrefix .. log
 
@@ -74,16 +75,18 @@ end
 
 function supercopNextbot_CopCanInvade()
     if not hasNavmesh() then
-        supercopLog( "supercopNextbot_CopCanInvade: No navmesh, Generate/install one." )
+        supercopNextbot_SupercopLog( "supercopNextbot_CopCanInvade: No navmesh, Generate/install one." )
         return false
 
     end
+
+    if navmesh.IsGenerating() then return end
 
     if IsValid( supercop_nextbot_copThatExists ) then return false end
 
     setupCopRandomSpawnpoint()
     if not whereToSpawn then
-        supercopLog( "supercopNextbot_CopCanInvade: Navmesh doesn't reach any map spawnpoints." )
+        supercopNextbot_SupercopLog( "supercopNextbot_CopCanInvade: Navmesh doesn't reach any map spawnpoints." )
         return false
 
     end
@@ -177,7 +180,7 @@ function supercopNextbot_CopInvade()
     if not whereToSpawn then return end
     local cop = ents.Create( "sb_advanced_nextbot_terminator_hunter_supercop" )
     if not IsValid( cop ) then
-        supercopLog( "Supercop Failed to spawn." )
+        supercopNextbot_SupercopLog( "Supercop Failed to spawn." )
         return
 
     end
@@ -192,14 +195,14 @@ function supercopNextbot_CopInvade()
 
     end )
 
-    supercopLog( "Supercop Spawned:", supercop_nextbot_copThatExists )
+    supercopNextbot_SupercopLog( "Supercop Spawned:", supercop_nextbot_copThatExists )
 
     return cop
 
 end
 
 function supercopNextbot_Remove()
-    if not IsValid( supercop_nextbot_copThatExists ) then supercopLog( "No supercop to remove." ) return end
+    if not IsValid( supercop_nextbot_copThatExists ) then supercopNextbot_SupercopLog( "No supercop to remove." ) return end
 
     SafeRemoveEntity( supercop_nextbot_copThatExists )
 
@@ -237,7 +240,7 @@ if theGamemode == "terrortown" then
             end
 
             if doneInvade and oncePerMap:GetBool() then
-                supercopLog( "Supercop tried to invade on round start twice in one map.\nBlocked by convar 'supercop_nextbot_ttt_invadeonce'" )
+                supercopNextbot_SupercopLog( "Supercop tried to invade on round start twice in one map.\nBlocked by convar 'supercop_nextbot_ttt_invadeonce'" )
                 return
 
             end
@@ -245,7 +248,7 @@ if theGamemode == "terrortown" then
             local roll = math.Rand( 0, 100 )
             -- if roll ends up above chance, do not invade
             if roll >= chance then -- don't spawn
-                supercopLog( "Supercop invasion on round start, blocked by random chance.\nRoll: " .. math.Round( roll, 3 ) .. "\nRequired: < " .. chance .. "\nChange supercop_nextbot_ttt_invadechanceonroundstart to 100, to always invade." )
+                supercopNextbot_SupercopLog( "Supercop invasion on round start, blocked by random chance.\nRoll: " .. math.Round( roll, 3 ) .. "\nRequired: < " .. chance .. "\nChange supercop_nextbot_ttt_invadechanceonroundstart to 100, to always invade." )
                 return
 
             end
@@ -257,7 +260,7 @@ if theGamemode == "terrortown" then
 
             -- valid invade, tell players!
             supercopMessage( supercopInvadedMessage() )
-            supercopLog( "Supercop has auto-invaded.\nRun the command: \"supercop_nextbot_ttt_invadechanceonroundstart 0\" To disable TTT auto-invasion" )
+            supercopNextbot_SupercopLog( "Supercop has auto-invaded.\nRun the command: \"supercop_nextbot_ttt_invadechanceonroundstart 0\" To disable TTT auto-invasion" )
 
             doneInvade = true
 
@@ -293,13 +296,13 @@ else
 
         -- valid invade, tell players!
         supercopMessage( supercopInvadedMessage() )
-        supercopLog( "Supercop has invaded.\nRun the command: \"supercop_nextbot_generic_invasionchance 0\" To disable auto-invasion" )
+        supercopNextbot_SupercopLog( "Supercop has invaded.\nRun the command: \"supercop_nextbot_generic_invasionchance 0\" To disable auto-invasion" )
 
         local spawnedTime = CurTime()
         cop.spawnedTime = spawnedTime
 
         if invasionLength:GetInt() < 1 then
-            supercopLog( "\"Infinite\" invasion ENABLED!" )
+            supercopNextbot_SupercopLog( "\"Infinite\" invasion ENABLED!" )
             return
 
         end

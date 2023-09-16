@@ -2,6 +2,8 @@
 -- this follows players around watching to see if they walk between unconnected navareas, and then tries to connect them.
 -- necessary because 99% of all stairs generated have stupid, stupid gaps in them
 
+local patchCount = 0
+
 local function connectionDistance( currArea, otherArea )
     local currCenter = currArea:GetCenter()
 
@@ -75,6 +77,7 @@ local function smartConnectionThink( oldArea, currArea, ignorePlanar )
     if not ignorePlanar and #areasInNavDir > 0 and arePlanar( currArea, areasInNavDir, criteria ) == true then return end
 
     oldArea:ConnectTo( currArea )
+    patchCount = patchCount + 1
 
     return true
 
@@ -158,6 +161,10 @@ local function finishPatching()
     donePatching = nil
 
     navmesh.Save()
+
+    supercopNextbot_SupercopLog( "Supercop removed, navpatcher's " .. tostring( patchCount ) .. " new connections, have been saved..." )
+    patchCount = 0
+
 end
 
 hook.Add( "Think", "supercop_nextbot_navpatcher", function()
@@ -167,6 +174,11 @@ hook.Add( "Think", "supercop_nextbot_navpatcher", function()
 
     elseif validCop then
         if doPatching:GetBool() ~= true then return end
+
+        if not donePatching then
+            supercopNextbot_SupercopLog( "Navpatcher is PATCHING!" )
+
+        end
 
         -- never want this to spam errors, and i dont trust it
         local success = ProtectedCall( function() manageNavPatching( player.GetAll() ) end )

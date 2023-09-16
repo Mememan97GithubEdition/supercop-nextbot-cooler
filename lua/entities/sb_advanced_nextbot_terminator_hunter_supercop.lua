@@ -121,10 +121,12 @@ function ENT:ClearOrBreakable( start, endpos )
 
     end
     if IsValid( tr.Entity ) then
+        local enemy = self:GetEnemy()
+        local isVehicle = tr.Entity:IsVehicle() and tr.Entity:GetDriver() and tr.Entity:GetDriver() == enemy
         if self:memorizedAsBreakable( tr.Entity ) then
             hitNothingOrHitBreakable = true
 
-        elseif self:GetEnemy() == tr.Entity then
+        elseif enemy == tr.Entity or isVehicle then
             hitNothingOrHitBreakable = true
             hitNothing = true
 
@@ -769,7 +771,7 @@ function ENT:DoTasks()
                 local circuitiousPath = self.NothingOrBreakableBetweenEnemy and ( pathLeng > ( self.DistToEnemy * 4 ) ) and ( pathLeng > 2000 ) and pathIsCurrent
                 local failedPath = controlResult == false and validEnemy
 
-                if data.Unreachable or failedPath or circuitiousPath then
+                if data.Unreachable or failedPath or circuitiousPath or ( validEnemy and enemy.InVehicle and enemy:InVehicle() ) then
                     self:TaskComplete( "movement_followenemy" )
                     self:StartTask2( "movement_maintainlos", { Unreachable = true }, "they're unreachable!" )
                     if validEnemy then
