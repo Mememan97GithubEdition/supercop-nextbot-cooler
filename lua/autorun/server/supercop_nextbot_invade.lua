@@ -214,6 +214,7 @@ local doneNoNavmeshPrint = nil
 
 local aiDisabled = GetConVar( "ai_disabled" )
 local aiIgnorePlayers = GetConVar( "ai_ignoreplayers" )
+local noPlayers = #player.GetAll() <= 0
 
 local theGamemode = engine.ActiveGamemode()
 if theGamemode == "terrortown" then
@@ -228,6 +229,7 @@ if theGamemode == "terrortown" then
             local chance = spawnChance:GetFloat()
             if chance <= 0 then return end
 
+            if noPlayers then return end
             if aiDisabled:GetBool() then return end
             if aiIgnorePlayers:GetBool() then return end
 
@@ -276,6 +278,7 @@ else
         local chance = spawnChance:GetFloat()
         if chance <= 0 then return end
 
+        if noPlayers then return end
         if aiDisabled:GetBool() then return end
         if aiIgnorePlayers:GetBool() then return end
 

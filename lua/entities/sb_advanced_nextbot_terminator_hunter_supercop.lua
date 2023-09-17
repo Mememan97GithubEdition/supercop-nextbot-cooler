@@ -180,6 +180,7 @@ local function blockDamage( damaged, _, damageInfo )
 
     end
 
+    damage:MakeFeud( attacker )
 
     if not damageInfo:IsBulletDamage() then return end
     doRicsEnt( damaged )
@@ -198,6 +199,8 @@ function ENT:OnTakeDamage( damageInfo )
         damageInfo:ScaleDamage( 0 )
 
     end
+
+    self:MakeFeud( attacker )
 
     if not damageInfo:IsBulletDamage() then return end
     doRicsEnt( self )
