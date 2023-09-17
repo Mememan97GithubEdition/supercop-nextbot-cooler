@@ -180,7 +180,7 @@ local function blockDamage( damaged, _, damageInfo )
 
     end
 
-    damage:MakeFeud( attacker )
+    damaged:MakeFeud( attacker )
 
     if not damageInfo:IsBulletDamage() then return end
     doRicsEnt( damaged )
