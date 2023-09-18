@@ -45,7 +45,31 @@ ENT.IsTerminatorSupercop = true
 ENT.NextSpokenLine = 0
 ENT.StuffToSay = {}
 
-ENT.Models = { "models/player/police.mdl" }
+local SUPERCOP_MODEL = "models/player/police.mdl"
+ENT.ARNOLD_MODEL = SUPERCOP_MODEL
+
+CreateConVar( "supercop_nextbot_forcedmodel", SUPERCOP_MODEL, bit.bor( FCVAR_ARCHIVE ), "Override the supercop nextbot's spawned-in model. Model needs to be rigged for player movement" )
+
+local function supercopModel()
+    local convar = GetConVar( "supercop_nextbot_forcedmodel" )
+    local model = SUPERCOP_MODEL
+    if convar then
+        local varModel = convar:GetString()
+        if varModel and util.IsValidModel( varModel ) then
+            model = varModel
+
+        end
+    end
+    return model
+
+end
+
+if not supercopModel() then
+    RunConsoleCommand( "supercop_nextbot_forcedmodel", SUPERCOP_MODEL )
+
+end
+
+ENT.Models = { SUPERCOP_MODEL }
 
 local vecFiveDown = Vector( 0, 0, -5 )
 
@@ -58,7 +82,7 @@ function ENT:MakeFootstepSound( volume, surface )
     local tr
 
     if not surface then
-        tr = util.TraceEntity({
+        tr = util.TraceEntity( {
             start = self:GetPos(),
             endpos = self:GetPos() + vecFiveDown,
             filter = self,
@@ -435,6 +459,8 @@ hook.Add( "PlayerSpawn", "supercop_plyspawnprotection", function( spawned )
 end )
 
 function ENT:AdditionalInitialize()
+    self:SetModel( supercopModel() )
+
     self:Give( "weapon_sb_supercoprevolver" )
 
     self:SetBloodColor( DONT_BLEED )
