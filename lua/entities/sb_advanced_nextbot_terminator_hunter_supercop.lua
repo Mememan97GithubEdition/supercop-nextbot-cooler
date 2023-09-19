@@ -25,7 +25,7 @@ ENT.StandingStepHeight = ENT.DefaultStepHeight * 1 -- used in crouch toggle in m
 ENT.CrouchingStepHeight = ENT.DefaultStepHeight * 0.9
 ENT.StepHeight = ENT.StandingStepHeight
 ENT.PathGoalToleranceFinal = 35
-ENT.SpawnHealth = 1000000
+ENT.SpawnHealth = 5000000
 ENT.AimSpeed = 150
 ENT.WalkSpeed = 50
 ENT.RunSpeed = 100
@@ -192,7 +192,6 @@ local function doRicsEnt( shotEnt )
     shotEnt:EmitSound( table.Random( rics ), 75, math.random( 92, 100 ), 1, CHAN_AUTO )
 
 end
-
 local function blockDamage( damaged, _, damageInfo )
     if not damaged.IsTerminatorSupercop then return end
     local attacker = damageInfo:GetAttacker()
@@ -216,7 +215,7 @@ hook.Add( "ScaleNPCDamage", "supercop_nextbot_blockdamage", blockDamage )
 
 function ENT:OnTakeDamage( damageInfo )
     local attacker = damageInfo:GetAttacker()
-    if IsValid( attacker ) and attacker ~= self and attacker:GetClass() == self:GetClass() then 
+    if IsValid( attacker ) and attacker ~= self and attacker:GetClass() == self:GetClass() then
         damageInfo:ScaleDamage( 2 )
 
     else
@@ -442,7 +441,7 @@ end
 local spawnProtectionLength     = CreateConVar( "supercop_nextbot_spawnprot_copspawn",  10, bit.bor( FCVAR_ARCHIVE ), "Bot won't shoot until it's been alive for this long", 0, 60 )
 local plyspawnProtectionLength  = CreateConVar( "supercop_nextbot_spawnprot_ply",       5, bit.bor( FCVAR_ARCHIVE ), "Don't shoot players until they've been alive for this long.", 0, 60 )
 
-ENT.SupercopEquipRevolverDist = 350
+ENT.SupercopEquipRevolverDist = 300
 ENT.EquipDistRampup = 15
 ENT.SupercopUnequipRevolverDist = 900
 ENT.SupercopBeatingStickDist = 125
@@ -847,7 +846,7 @@ function ENT:DoTasks()
                 data.nextPath = 0
                 data.tryAndApproach = 0
                 if data.Unreachable then
-                    data.tryAndApproach = CurTime() + 35
+                    data.tryAndApproach = CurTime() + 11
 
                 end
                 data.nextTauntLine = _CurTime() + 8

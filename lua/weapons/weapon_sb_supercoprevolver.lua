@@ -1,3 +1,6 @@
+-- nerf accuracy at range?
+-- make sniping more last resort
+
 AddCSLuaFile()
 
 SWEP.PrintName = "O'l Reliable."
@@ -60,10 +63,19 @@ function SWEP:PrimaryAttack()
         Dir = owner:GetAimVector(),
         Spread = vec3_origin,
         Distance = MAX_TRACE_LENGTH,
-        AmmoType = self:GetPrimaryAmmoType(),
         Damage = 5000,
+        Tracer = 0,
         Force = 1,
         Attacker = owner,
+        Callback = function( _, trace )
+            local tracerEffect = EffectData()
+            tracerEffect:SetStart( owner:GetShootPos() )
+            tracerEffect:SetOrigin( trace.HitPos )
+            tracerEffect:SetScale( 25000 ) -- fast
+
+            util.Effect( "StriderTracer", tracerEffect ) -- BIG effect
+
+        end
     } )
 
     self:DoMuzzleFlash()
@@ -113,7 +125,7 @@ function SWEP:DoMuzzleFlash()
         local ef = EffectData()
         ef:SetEntity( self )
         ef:SetAttachment( self:LookupAttachment( "muzzle" ) )
-        ef:SetScale( 1 )
+        ef:SetScale( 2 )
         ef:SetFlags( MUZZLEFLASH_357 )
         util.Effect( "MuzzleFlash", ef, false )
     end
@@ -152,6 +164,12 @@ end
 
 function SWEP:GetNPCBulletSpread( prof )
     local base = 0
+    local owner = self:GetOwner()
+    if IsValid( owner ) and owner.GetEnemy and owner.SupercopUnequipRevolverDist and owner.DistToEnemy > ( owner.SupercopUnequipRevolverDist * 1.5 ) then
+        base = 0.3
+
+    end
+
     local spread = { base + 2, base + 1.5, base + 1, base + 0.5, base }
     return spread[ prof + 1 ]
 end
