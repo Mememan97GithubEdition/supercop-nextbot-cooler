@@ -158,6 +158,8 @@ end
 
 function SWEP:Reload()
     self:SetClip1( self.Primary.ClipSize )
+    self:SetNextPrimaryFire( CurTime() + 1.25 )
+
 end
 
 function SWEP:CanBePickedUpByNPCs()

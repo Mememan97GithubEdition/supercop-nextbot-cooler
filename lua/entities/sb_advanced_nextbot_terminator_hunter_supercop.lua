@@ -537,10 +537,11 @@ function ENT:DoTasks()
 
                     end
                 -- bring out gun
-                elseif self.DoHolster and closeOrNotMoving and self.NothingOrBreakableBetweenEnemy then
+                elseif self.DoHolster and closeOrNotMoving then
                     self.DoHolster = nil
                     self:PlaySentence( weaponWarn )
 
+                    -- as ply tests bot, increase the dist that we pull out the gun at.
                     self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, _CurTime() + 1.5 )
                     self.PreventShooting = nil
 
@@ -549,13 +550,13 @@ function ENT:DoTasks()
                     self.SupercopEquipRevolverDist = increased
 
                 -- put away gun
-                elseif self.DistToEnemy > self.SupercopEquipRevolverDist + 250 and moving and notBlockShooting then
+                elseif self.DistToEnemy > ( self.SupercopEquipRevolverDist + 250 ) and moving and notBlockShooting then
                     self.DoHolster = true
                     self.PreventShooting = true
 
                 end
 
-                local neededOrRandReload = ( wep:Clip1() < wep:GetMaxClip1() / 2 ) or ( wep:Clip1() < wep:GetMaxClip1() and math.random( 1, 100 ) < 2 )
+                local needToReload = ( wep:Clip1() < wep:GetMaxClip1() / 2 ) or ( wep:Clip1() < wep:GetMaxClip1() and self.DoHolster )
 
                 if self.DoHolster ~= self.OldDoHolster and wep:Clip1() == wep:GetMaxClip1() then
                     if self.DoHolster then
@@ -589,14 +590,17 @@ function ENT:DoTasks()
                     else
                         -- dont shoot if bot just spawned, or enemy just spawned
                         local protected = ( self.SupercopJustspawnedBlockShooting > _CurTime() ) or enemyIsSpawnProtected
+                        protected = protected and not self.DoHolster -- im holstered, never shoot!
                         self:shootAt( toAimAt, protected )
 
                     end
                 elseif wep:Clip1() <= 0 and wep:GetMaxClip1() > 0 then
                     self:WeaponReload()
+                    self.OldDoHolster = nil
 
-                elseif not self.NothingOrBreakableBetweenEnemy and wep:GetMaxClip1() > 0 and neededOrRandReload then
+                elseif wep:GetMaxClip1() > 0 and ( not self.NothingOrBreakableBetweenEnemy or needToReload ) then
                     self:WeaponReload()
+                    self.OldDoHolster = nil
 
                 else
                     self:shootAt( toAimAt, true )
@@ -677,7 +681,7 @@ function ENT:DoTasks()
                         local enemy = self:FindPriorityEnemy()
 
                         -- conditional friction for switching enemies.
-                        -- fixes bot jumping between two enemies and doing a little dance
+                        -- fixes bot jumping between two enemies that get obscured as it paths, and doing a little dance
                         if
                             IsValid( enemy ) and
                             IsValid( prevenemy ) and
@@ -803,7 +807,7 @@ function ENT:DoTasks()
             BehaveUpdate = function( self, data )
 
                 local enemy = self:GetEnemy()
-                local validEnemy = IsValid( enemy )
+                local validEnemy = IsValid( enemy ) and enemy:Health() > 0
                 local enemyPos = self:GetLastEnemyPosition( enemy ) or self.EnemyLastPos or nil
                 data.wasEnemy = validEnemy or data.wasEnemy
 
@@ -841,7 +845,7 @@ function ENT:DoTasks()
                 local circuitiousPath = self.NothingOrBreakableBetweenEnemy and ( pathLeng > ( self.DistToEnemy * 6 ) ) and ( pathLeng > 2000 ) and pathIsCurrent
                 local failedPath = controlResult == false and validEnemy
 
-                if data.Unreachable or failedPath or circuitiousPath or ( validEnemy and enemy.InVehicle and enemy:InVehicle() ) then
+                if validEnemy and ( data.Unreachable or failedPath or circuitiousPath or ( enemy.InVehicle and enemy:InVehicle() ) ) then
                     self:TaskComplete( "movement_followenemy" )
                     self:StartTask2( "movement_maintainlos", { Unreachable = true }, "they're unreachable!" )
                     if validEnemy then
