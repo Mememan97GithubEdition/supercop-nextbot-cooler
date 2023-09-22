@@ -622,6 +622,7 @@ function ENT:DoTasks()
                 data.UpdateEnemies = _CurTime()
                 data.HasEnemy = false
                 data.playerCheckIndex = 0
+                data.blockSwitchingEnemies = 0
                 self.IsSeeEnemy = false
                 self.DistToEnemy = 0
                 self:SetEnemy( NULL )
@@ -635,7 +636,8 @@ function ENT:DoTasks()
 
                         self:FindEnemies()
 
-                        -- here if the above stuff didnt find an enemy we force it to rotate through all players one by one
+                        -- rotate through all players one by one
+                        -- we check looong distance here so it's staggered.
                         if not ignorePlayers:GetBool() then
                             local allPlayers = player.GetAll()
                             local pickedPlayer = allPlayers[data.playerCheckIndex]
@@ -643,7 +645,8 @@ function ENT:DoTasks()
                             local didForceEnemy
                             local tooLongSinceLastEnemy = ( self.LastEnemySpotTime + 20 ) < _CurTime()
 
-                            -- this is dishgushtang!
+                            -- check if alive etc
+                            -- MESSY but it's better than it going off to the right
                             if
                                 IsValid( pickedPlayer ) and
                                 pickedPlayer:Health() > 0 and
@@ -673,7 +676,22 @@ function ENT:DoTasks()
 
                         local enemy = self:FindPriorityEnemy()
 
-                        if IsValid( enemy ) then
+                        -- conditional friction for switching enemies.
+                        -- fixes bot jumping between two enemies and doing a little dance
+                        if
+                            IsValid( enemy ) and
+                            IsValid( prevenemy ) and
+                            prevenemy:Health() > 0 and -- old enemy needs to be alive...
+                            prevenemy ~= enemy and
+                            data.blockSwitchingEnemies > 0 and
+                            self:GetPos():Distance( enemy:GetPos() ) > self.SupercopEquipRevolverDist -- enemy needs to be far away, otherwise just switch now
+
+                        then
+                            data.blockSwitchingEnemies = data.blockSwitchingEnemies + -1
+                            enemy = prevenemy
+
+
+                        elseif IsValid( enemy ) then
                             newenemy = enemy
                             local enemyPos = enemy:GetPos()
                             if not self.EnemyLastPos then self.EnemyLastPos = enemyPos end
@@ -732,26 +750,30 @@ function ENT:DoTasks()
                         if not data.HasEnemy then
                             self:PlaySentence( spottedEnemy )
                             self:RunTask( "EnemyFound", newenemy )
-                        elseif prevenemy ~= newenemy then
-                            self:RunTask( "EnemyChanged", newenemy, prevenemy )
-                        end
 
+                        elseif prevenemy ~= newenemy then
+                            data.blockSwitchingEnemies = math.random( 5, 8 )
+                            self:RunTask( "EnemyChanged", newenemy, prevenemy )
+
+                        end
                         data.HasEnemy = true
 
                         if self:CanSeePosition( newenemy ) then
                             self.LastEnemyShootPos = self:EntShootPos( newenemy )
                             self:UpdateEnemyMemory( newenemy, newenemy:GetPos() )
+
                         end
                     else
                         if data.HasEnemy then
                             self:RunTask( "EnemyLost", prevenemy )
-                        end
 
+                        end
                         data.HasEnemy = false
                         self.IsSeeEnemy = false
+
                     end
 
-                    self:SetEnemy(newenemy)
+                    self:SetEnemy( newenemy )
                 end
             end,
             BehaveUpdate = function(self,data,interval)

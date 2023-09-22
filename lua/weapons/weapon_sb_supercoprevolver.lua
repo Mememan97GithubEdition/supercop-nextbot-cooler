@@ -5,8 +5,9 @@ AddCSLuaFile()
 
 SWEP.PrintName = "O'l Reliable."
 SWEP.Spawnable = false
+SWEP.AdminOnly = true
 SWEP.Author = "Straw W Wagen"
-SWEP.Purpose = "Should only be used internally by advanced nextbots!"
+SWEP.Purpose = "Shoot without asking!"
 
 SWEP.ViewModel = "models/weapons/v_357.mdl"
 SWEP.WorldModel = "models/weapons/w_357.mdl"

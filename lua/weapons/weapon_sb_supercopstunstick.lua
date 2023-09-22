@@ -2,8 +2,9 @@ AddCSLuaFile()
 
 SWEP.PrintName = "Arm of the law."
 SWEP.Spawnable = false
+SWEP.AdminOnly = true
 SWEP.Author = "Straw W Wagen"
-SWEP.Purpose = "Should only be used internally by advanced nextbots!"
+SWEP.Purpose = "It's nuclear powered!"
 
 SWEP.ViewModel = "models/weapons/v_stunbaton.mdl"
 SWEP.WorldModel = "models/weapons/w_stunbaton.mdl"
