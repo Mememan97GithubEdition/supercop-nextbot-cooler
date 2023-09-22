@@ -558,20 +558,23 @@ function ENT:DoTasks()
 
                 local needToReload = ( wep:Clip1() < wep:GetMaxClip1() / 2 ) or ( wep:Clip1() < wep:GetMaxClip1() and self.DoHolster )
 
-                if self.DoHolster ~= self.OldDoHolster and wep:Clip1() == wep:GetMaxClip1() then
-                    if self.DoHolster then
+                if self.DoHolster ~= self.OldDoHolster then
+                    if self.DoHolster and wep:Clip1() == wep:GetMaxClip1() then
                         wep:SetWeaponHoldType( "passive" )
 
-                    else
+                    elseif self.DoHolster ~= true then
                         wep:SetWeaponHoldType( "revolver" )
 
                     end
                     self.OldDoHolster = self.DoHolster
 
                 end
-                local blockShooting = self.DoHolster or self.PreventShooting or not self.NothingOrBreakableBetweenEnemy or self.SupercopBlockShooting > _CurTime()
+                local blockShooting = not notBlockShooting or self.DoHolster or self.PreventShooting or not self.NothingOrBreakableBetweenEnemy or self.SupercopBlockShooting > _CurTime()
+                -- by default, aim at the last spot we saw enemy
                 local toAimAt = self.LastEnemyShootPos
-                if self.IsSeeEnemy then -- i mean it has wallhacks, but this makes it look like it doesn't 
+                -- ok we see enemy, aim right at them
+                -- it has wallhacks, but this makes it look like it doesn't 
+                if self.IsSeeEnemy then
                     toAimAt = self:EntShootPos( enemy )
 
                 end
@@ -590,7 +593,6 @@ function ENT:DoTasks()
                     else
                         -- dont shoot if bot just spawned, or enemy just spawned
                         local protected = ( self.SupercopJustspawnedBlockShooting > _CurTime() ) or enemyIsSpawnProtected
-                        protected = protected and not self.DoHolster -- im holstered, never shoot!
                         self:shootAt( toAimAt, protected )
 
                     end
@@ -852,13 +854,18 @@ function ENT:DoTasks()
                         self:PlaySentence( playerUnreachBegin )
 
                     end
-                elseif controlResult == true and not validEnemy then
-                    self:TaskComplete( "movement_followenemy" )
-                    self:StartTask2( "movement_maintainlos", nil, "no enemy and i checked where they were!" )
-                    if data.wasEnemy then
-                        data.wasEnemy = nil
-                        self:PlaySentence( "METROPOLICE_LOST_LONG" .. math.random( 0, 5 ) )
+                elseif controlResult == true then
+                    if validEnemy then
+                        self:GetPath():Invalidate()
 
+                    elseif not validEnemy then
+                        self:TaskComplete( "movement_followenemy" )
+                        self:StartTask2( "movement_maintainlos", nil, "no enemy and i checked where they were!" )
+                        if data.wasEnemy then
+                            data.wasEnemy = nil
+                            self:PlaySentence( "METROPOLICE_LOST_LONG" .. math.random( 0, 5 ) )
+
+                        end
                     end
                 elseif not self:primaryPathIsValid() and not newPath then
                     self:TaskComplete( "movement_followenemy" )
