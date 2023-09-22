@@ -147,12 +147,12 @@ function ENT:ClearOrBreakable( start, endpos )
     if IsValid( tr.Entity ) then
         local enemy = self:GetEnemy()
         local isVehicle = tr.Entity:IsVehicle() and tr.Entity:GetDriver() and tr.Entity:GetDriver() == enemy
-        if self:memorizedAsBreakable( tr.Entity ) then
-            hitNothingOrHitBreakable = true
-
-        elseif enemy == tr.Entity or isVehicle then
+        if enemy == tr.Entity or isVehicle then
             hitNothingOrHitBreakable = true
             hitNothing = true
+
+        elseif self:memorizedAsBreakable( tr.Entity ) then
+            hitNothingOrHitBreakable = true
 
         end
     end
@@ -271,6 +271,12 @@ local weaponWarn = {
     "METROPOLICE_MOVE_ALONG_C3",
     "METROPOLICE_BACK_UP_C4",
     "METROPOLICE_MONST_CITIZENS0",
+    "METROPOLICE_HIT_BY_PHYSOBJECT2",
+    "METROPOLICE_HIT_BY_PHYSOBJECT3",
+    "METROPOLICE_HIT_BY_PHYSOBJECT4",
+
+    "METROPOLICE_FREEZE0",
+    "METROPOLICE_FREEZE1",
 
 }
 
@@ -303,6 +309,15 @@ local playerDead = {
 
 local playerUnreachBegin = {
     "METROPOLICE_HIT_BY_PHYSOBJECT2",
+    "METROPOLICE_ARREST_IN_POS1",
+    "METROPOLICE_HES_RUNNING0",
+
+}
+
+local stunstuckEquip = {
+    "METROPOLICE_ACTIVATE_BATON0",
+    "METROPOLICE_ACTIVATE_BATON1",
+    "METROPOLICE_ACTIVATE_BATON2",
 
 }
 
@@ -443,7 +458,7 @@ local plyspawnProtectionLength  = CreateConVar( "supercop_nextbot_spawnprot_ply"
 
 ENT.SupercopEquipRevolverDist = 300
 ENT.EquipDistRampup = 15
-ENT.SupercopUnequipRevolverDist = 900
+ENT.SupercopMaxUnequipRevolverDist = 1000
 ENT.SupercopBeatingStickDist = 125
 ENT.SupercopBlockOlReliable = 0
 ENT.SupercopBlockShooting = 0
@@ -499,26 +514,30 @@ function ENT:DoTasks()
                 local doingBeatinStick = wep:GetClass() == beatinStickClass
                 local closeOrNotMoving = self.DistToEnemy < self.SupercopEquipRevolverDist or not moving
                 local notBlockShooting = self.SupercopBlockShooting < _CurTime()
+                -- give fists logic time to work, see isfists in terminator weapons override file
                 local nextWeaponPickup = self.terminator_NextWeaponPickup or 0
 
                 if self.DistToEnemy < self.SupercopBeatingStickDist and self.NothingOrBreakableBetweenEnemy then
+                    -- bring out stunstuck
                     if not doingBeatinStick and notBlockShooting and nextWeaponPickup < _CurTime() then
                         self.PreventShooting = nil
                         self.DoHolster = nil
                         self:Give( beatinStickClass )
                         self.SupercopBlockShooting = _CurTime() + 0.3
-                        self:PlaySentence( "METROPOLICE_ACTIVATE_BATON" .. math.random( 0, 2 ) )
+                        self:PlaySentence( stunstuckEquip )
                         self.SupercopBlockOlReliable = _CurTime() + math.Rand( 2, 3 )
 
                     end
 
                 elseif doingBeatinStick then
+                    -- put away stunstick
                     if notBlockShooting and nextWeaponPickup < CurTime() and self.SupercopBlockOlReliable < CurTime() then
                         self:Give( olReliableClass )
                         self.SupercopBlockShooting = _CurTime() + 0.8
 
                     end
-                elseif self.DoHolster and closeOrNotMoving then
+                -- bring out gun
+                elseif self.DoHolster and closeOrNotMoving and self.NothingOrBreakableBetweenEnemy then
                     self.DoHolster = nil
                     self:PlaySentence( weaponWarn )
 
@@ -526,10 +545,11 @@ function ENT:DoTasks()
                     self.PreventShooting = nil
 
                     local increased = self.SupercopEquipRevolverDist + self.EquipDistRampup
-                    increased = math.Clamp( increased, 0, self.SupercopUnequipRevolverDist + -100 )
+                    increased = math.Clamp( increased, 0, self.SupercopMaxUnequipRevolverDist + -100 )
                     self.SupercopEquipRevolverDist = increased
 
-                elseif self.DistToEnemy > self.SupercopUnequipRevolverDist and moving and notBlockShooting then
+                -- put away gun
+                elseif self.DistToEnemy > self.SupercopEquipRevolverDist + 250 and moving and notBlockShooting then
                     self.DoHolster = true
                     self.PreventShooting = true
 
@@ -555,10 +575,7 @@ function ENT:DoTasks()
 
                 end
 
-                if wep:Clip1() <= 0 and wep:GetMaxClip1() > 0 then
-                    self:WeaponReload()
-
-                elseif IsValid( enemy ) and not blockShooting then
+                if IsValid( enemy ) and not blockShooting then
                     local enemySpawnProtEnds = enemy.Supercop_SpawnProtection or 0
                     local enemyIsSpawnProtected = enemySpawnProtEnds > _CurTime()
 
@@ -575,7 +592,10 @@ function ENT:DoTasks()
                         self:shootAt( toAimAt, protected )
 
                     end
-                elseif wep:GetMaxClip1() > 0 and neededOrRandReload then
+                elseif wep:Clip1() <= 0 and wep:GetMaxClip1() > 0 then
+                    self:WeaponReload()
+
+                elseif not self.NothingOrBreakableBetweenEnemy and wep:GetMaxClip1() > 0 and neededOrRandReload then
                     self:WeaponReload()
 
                 else
@@ -796,7 +816,7 @@ function ENT:DoTasks()
                     end
                 end
 
-                local circuitiousPath = self.NothingOrBreakableBetweenEnemy and ( pathLeng > ( self.DistToEnemy * 4 ) ) and ( pathLeng > 2000 ) and pathIsCurrent
+                local circuitiousPath = self.NothingOrBreakableBetweenEnemy and ( pathLeng > ( self.DistToEnemy * 6 ) ) and ( pathLeng > 2000 ) and pathIsCurrent
                 local failedPath = controlResult == false and validEnemy
 
                 if data.Unreachable or failedPath or circuitiousPath or ( validEnemy and enemy.InVehicle and enemy:InVehicle() ) then
@@ -843,10 +863,11 @@ function ENT:DoTasks()
         },
         ["movement_maintainlos"] = {
             OnStart = function( self, data )
+                local enemy = self:GetEnemy()
                 data.nextPath = 0
-                data.tryAndApproach = 0
-                if data.Unreachable then
-                    data.tryAndApproach = CurTime() + 11
+                data.tryAndApproach = {}
+                if data.Unreachable and IsValid( enemy ) then
+                    data.tryAndApproach[enemy:GetCreationID()] = CurTime() + 11
 
                 end
                 data.nextTauntLine = _CurTime() + 8
@@ -860,13 +881,19 @@ function ENT:DoTasks()
                 local enemy = self:GetEnemy()
                 local goodEnemy = IsValid( enemy ) and enemy:Health() >= 0
                 local seeAndCanShoot = self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy
-                local canTryToApproach = data.tryAndApproach < _CurTime()
+                local canTryToApproach = false
 
                 if not data.wander and not goodEnemy then
                     data.wander = true
 
                 elseif data.wander and goodEnemy then
                     data.wander = nil
+
+                end
+
+                if goodEnemy then
+                    local time = data.tryAndApproach[enemy:GetCreationID()]
+                    canTryToApproach = not time or time < _CurTime()
 
                 end
 
@@ -923,11 +950,6 @@ function ENT:DoTasks()
 
                         end
 
-                        if wander and scoreData.self.walkedAreas[ area2:GetID() ] then
-                            score = score * 0.05
-
-                        end
-
                         if area2:IsUnderwater() then
                             if wander then
                                 score = score * 0.05
@@ -964,9 +986,29 @@ function ENT:DoTasks()
                             end
                         end
 
-                        if not wander and area2Center.z > scoreData.myShootPos.z then
-                            score = score * 4
+                        if not wander then
+                            -- prefer high ground
+                            if area2Center.z > scoreData.startingShootPosZ then
+                                score = score * 4
 
+                            -- don't go down!
+                            elseif area2Center.z < ( scoreData.startingShootPosZ + -300 ) then
+                                score = math.Clamp( score * 0.5, 0, 1000 )
+
+                            end
+                        else
+                            -- dont go to spots we've already been
+                            if scoreData.self.walkedAreas[ area2:GetID() ] then
+                                score = score * 0.05
+
+                            -- prefer higher spots when wandering 
+                            elseif area2Center.z > ( scoreData.startingShootPosZ + 150 ) then
+                                score = score * 4
+
+                            elseif area2Center.z < ( scoreData.startingShootPosZ + -300 ) then
+                                score = score * 0.05
+
+                            end
                         end
 
                         --debugoverlay.Text( area2Center, tostring( score ), 5, false )
@@ -982,11 +1024,11 @@ function ENT:DoTasks()
                     local posOnNav = result.pos
                     self:SetupPath2( posOnNav )
 
-                    data.nextPath = _CurTime() + math.Rand( 0.45, 1 )
+                    data.nextPath = _CurTime() + math.Rand( 0.25, 0.5 )
                     --debugoverlay.Cross( posOnNav, 100, 1, color_white, true )
 
                     if not self:primaryPathIsValid() then return end
-                    data.nextPath = _CurTime() + math.Rand( 4, 6 )
+                    data.nextPath = _CurTime() + math.Rand( 1, 2 )
 
                 end
 
@@ -996,8 +1038,9 @@ function ENT:DoTasks()
                 end
 
                 local farFromPathEnd = self:GetPath():GetEnd():DistToSqr( self:GetPos() ) > 200^2
-                local blockShoot = self:primaryPathIsValid() and farFromPathEnd and self.DistToEnemy > self.SupercopUnequipRevolverDist
-                local pathResult = self:ControlPath2( blockShoot or data.wander )
+                -- if bot is handling path then override shooting handler
+                local isTraversingPath = self:primaryPathIsValid() and farFromPathEnd and self.DistToEnemy > self.SupercopMaxUnequipRevolverDist
+                local pathResult = self:ControlPath2( isTraversingPath or data.wander )
 
                 if pathResult == true and not data.endedPath then
                     data.nextPath = _CurTime() + math.Rand( 2, 4 )

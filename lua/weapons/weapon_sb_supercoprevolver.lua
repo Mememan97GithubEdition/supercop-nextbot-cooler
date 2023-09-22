@@ -72,6 +72,7 @@ function SWEP:PrimaryAttack()
             tracerEffect:SetStart( owner:GetShootPos() )
             tracerEffect:SetOrigin( trace.HitPos )
             tracerEffect:SetScale( 25000 ) -- fast
+            tracerEffect:SetFlags( 0x0001 ) --whiz!
 
             util.Effect( "StriderTracer", tracerEffect ) -- BIG effect
 
@@ -165,7 +166,7 @@ end
 function SWEP:GetNPCBulletSpread( prof )
     local base = 0
     local owner = self:GetOwner()
-    if IsValid( owner ) and owner.GetEnemy and owner.SupercopUnequipRevolverDist and owner.DistToEnemy > ( owner.SupercopUnequipRevolverDist * 1.5 ) then
+    if IsValid( owner ) and owner.GetEnemy and owner.SupercopMaxUnequipRevolverDist and owner.DistToEnemy > ( owner.SupercopMaxUnequipRevolverDist * 1.5 ) then
         base = 0.3
 
     end
