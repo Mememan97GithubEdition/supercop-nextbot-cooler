@@ -310,7 +310,6 @@ local playerDead = {
 local playerUnreachBegin = {
     "METROPOLICE_HIT_BY_PHYSOBJECT2",
     "METROPOLICE_ARREST_IN_POS1",
-    "METROPOLICE_HES_RUNNING0",
 
 }
 
@@ -456,9 +455,9 @@ end
 local spawnProtectionLength     = CreateConVar( "supercop_nextbot_spawnprot_copspawn",  10, bit.bor( FCVAR_ARCHIVE ), "Bot won't shoot until it's been alive for this long", 0, 60 )
 local plyspawnProtectionLength  = CreateConVar( "supercop_nextbot_spawnprot_ply",       5, bit.bor( FCVAR_ARCHIVE ), "Don't shoot players until they've been alive for this long.", 0, 60 )
 
-ENT.SupercopEquipRevolverDist = 300
+ENT.SupercopEquipRevolverDist = 350
 ENT.EquipDistRampup = 15
-ENT.SupercopMaxUnequipRevolverDist = 1000
+ENT.SupercopMaxUnequipRevolverDist = 1200
 ENT.SupercopBeatingStickDist = 125
 ENT.SupercopBlockOlReliable = 0
 ENT.SupercopBlockShooting = 0
@@ -546,7 +545,7 @@ function ENT:DoTasks()
                     self.PreventShooting = nil
 
                     local increased = self.SupercopEquipRevolverDist + self.EquipDistRampup
-                    increased = math.Clamp( increased, 0, self.SupercopMaxUnequipRevolverDist + -100 )
+                    increased = math.Clamp( increased, 0, self.SupercopMaxUnequipRevolverDist + -250 )
                     self.SupercopEquipRevolverDist = increased
 
                 -- put away gun
@@ -556,6 +555,7 @@ function ENT:DoTasks()
 
                 end
 
+                local lostEnemyForASec = ( self.LastEnemySpotTime + 1 ) < CurTime()
                 local needToReload = ( wep:Clip1() < wep:GetMaxClip1() / 2 ) or ( wep:Clip1() < wep:GetMaxClip1() and self.DoHolster )
 
                 if self.DoHolster ~= self.OldDoHolster then
@@ -596,12 +596,14 @@ function ENT:DoTasks()
                         self:shootAt( toAimAt, protected )
 
                     end
-                elseif wep:Clip1() <= 0 and wep:GetMaxClip1() > 0 then
+                elseif wep:Clip1() <= 0 and wep:GetMaxClip1() > 0 and lostEnemyForASec then
                     self:WeaponReload()
+                    print( lostEnemyForASec, "a" )
                     self.OldDoHolster = nil
 
-                elseif wep:GetMaxClip1() > 0 and ( not self.NothingOrBreakableBetweenEnemy or needToReload ) then
+                elseif wep:GetMaxClip1() > 0 and self.NothingOrBreakableBetweenEnemy and needToReload then
                     self:WeaponReload()
+                    print( lostEnemyForASec, "b" )
                     self.OldDoHolster = nil
 
                 else
@@ -758,7 +760,7 @@ function ENT:DoTasks()
                             self:RunTask( "EnemyFound", newenemy )
 
                         elseif prevenemy ~= newenemy then
-                            data.blockSwitchingEnemies = math.random( 5, 8 )
+                            data.blockSwitchingEnemies = math.random( 3, 5 )
                             self:RunTask( "EnemyChanged", newenemy, prevenemy )
 
                         end
@@ -807,7 +809,6 @@ function ENT:DoTasks()
 
             end,
             BehaveUpdate = function( self, data )
-
                 local enemy = self:GetEnemy()
                 local validEnemy = IsValid( enemy ) and enemy:Health() > 0
                 local enemyPos = self:GetLastEnemyPosition( enemy ) or self.EnemyLastPos or nil
@@ -817,7 +818,7 @@ function ENT:DoTasks()
                 local currentPathIsStale = enemyPos and self:primaryPathIsValid() and self:CanDoNewPath( enemyPos )
 
                 local newPath = noPath or currentPathIsStale
-                newPath = self:nextNewPathIsGood() and not data.Unreachable and newPath 
+                newPath = self:nextNewPathIsGood() and not data.Unreachable and newPath
 
                 if newPath then
                     local result = terminator_Extras.getNearestPosOnNav( enemyPos )
@@ -848,6 +849,7 @@ function ENT:DoTasks()
                 local failedPath = controlResult == false and validEnemy
 
                 if validEnemy and ( data.Unreachable or failedPath or circuitiousPath or ( enemy.InVehicle and enemy:InVehicle() ) ) then
+                    --print( data.Unreachable, failedPath, circuitiousPath, pathLeng, ( enemy.InVehicle and enemy:InVehicle() ) )
                     self:TaskComplete( "movement_followenemy" )
                     self:StartTask2( "movement_maintainlos", { Unreachable = true }, "they're unreachable!" )
                     if validEnemy then
@@ -907,6 +909,8 @@ function ENT:DoTasks()
                 local distToShootpos = self:GetPos():Distance( self:GetShootPos() )
                 data.offsetToShootPos = Vector( 0, 0, distToShootpos )
 
+                data.endToEnemyBlockedCount = 0
+
                 self:GetPath():Invalidate()
 
             end,
@@ -930,18 +934,28 @@ function ENT:DoTasks()
 
                 end
 
-                local endCanSeeEnemy = self:primaryPathIsValid() and IsValid( enemy ) and self:ClearOrBreakable( self:GetPath():GetEnd() + data.offsetToShootPos, self:EntShootPos( enemy ) )
+                local endCanSeeEnemy
+
+                if self:primaryPathIsValid() and IsValid( enemy ) then
+                    endCanSeeEnemy = self:ClearOrBreakable( self:GetPath():GetEnd() + data.offsetToShootPos, self:EntShootPos( enemy ) )
+                    data.endToEnemyBlockedCount = data.endToEnemyBlockedCount + 1
+
+                end
+                if not endCanSeeEnemy then
+                    data.endToEnemyBlockedCount = 0
+
+                end
 
                 local standingStillAndCantSee = not self:primaryPathIsValid() and not seeAndCanShoot
-                local walkingOverAndEndCantSee = not data.wander and self:primaryPathIsValid() and not endCanSeeEnemy
+                local walkingOverAndEndCantSee = not data.wander and self:primaryPathIsValid() and data.endToEnemyBlockedCount > 15
 
                 local newPath = standingStillAndCantSee or walkingOverAndEndCantSee
                 if newPath and data.nextPath < _CurTime() then
-                    local enemsShootPos = nil
+                    local enemysShootPos = nil
                     local enemsCrouchShootPos = nil
                     if not data.wander then
-                        enemsShootPos = self:EntShootPos( enemy )
-                        enemsCrouchShootPos = enemsShootPos + ( -data.offsetToShootPos / 2 )
+                        enemysShootPos = self:EntShootPos( enemy )
+                        enemsCrouchShootPos = enemysShootPos + ( -data.offsetToShootPos / 2 )
 
                     end
 
@@ -950,11 +964,12 @@ function ENT:DoTasks()
 
                     scoreData.self = self
                     scoreData.myShootPos = self:GetShootPos()
-                    scoreData.enemysShootPos = enemsShootPos
+                    scoreData.enemysShootPos = enemysShootPos
                     scoreData.enemysCrouchShootPos = enemsCrouchShootPos
                     scoreData.areaCenterOffset = data.offsetToShootPos
                     scoreData.wander = data.wander
                     scoreData.startingShootPosZ = scoreData.myShootPos.z
+                    scoreData.goingFurtherAwayCutoff = self.DistToEnemy^2
 
                     local maxDist = 2000
 
@@ -967,9 +982,10 @@ function ENT:DoTasks()
                     -- find areas that have a line of sight to my enemy
                     local scoreFunction = function( scoreData, area1, area2 )
                         local area2Center = area2:GetCenter()
-                        if not scoreData.self:areaIsReachable( area2 ) then return 0.001 end
 
                         local score = math.Round( math.Rand( 0.90, 1.10 ), 3 )
+
+                        if not scoreData.self:areaIsReachable( area2 ) then score = 0.1 end
 
                         local heightChange = area1:ComputeAdjacentConnectionHeightChange( area2 )
                         local wander = scoreData.wander
@@ -995,7 +1011,7 @@ function ENT:DoTasks()
 
                         local firstWasGood
 
-                        if score >= 0.9 and not wander then
+                        if score >= 0.8 and not wander then
                             local firstClearOrBreakable, _, firstJustClear = self:ClearOrBreakable( area2Center + scoreData.areaCenterOffset, scoreData.enemysShootPos )
 
                             if firstJustClear then
@@ -1027,6 +1043,10 @@ function ENT:DoTasks()
                             -- don't go down!
                             elseif area2Center.z < ( scoreData.startingShootPosZ + -300 ) then
                                 score = math.Clamp( score * 0.5, 0, 1000 )
+
+                            end
+                            if area2Center:DistToSqr( scoreData.enemysShootPos ) > scoreData.goingFurtherAwayCutoff then
+                                score = score * 0.8
 
                             end
                         else
@@ -1061,12 +1081,12 @@ function ENT:DoTasks()
                     --debugoverlay.Cross( posOnNav, 100, 1, color_white, true )
 
                     if not self:primaryPathIsValid() then return end
-                    data.nextPath = _CurTime() + math.Rand( 1, 2 )
+                    data.nextPath = _CurTime() + math.Rand( 0.5, 1 )
 
                 end
 
                 if not newPath and goodEnemy then
-                    data.nextPath = math.max( _CurTime() + 2, data.nextPath )
+                    data.nextPath = math.max( _CurTime() + 1, data.nextPath )
 
                 end
 
@@ -1076,7 +1096,13 @@ function ENT:DoTasks()
                 local pathResult = self:ControlPath2( isTraversingPath or data.wander )
 
                 if pathResult == true and not data.endedPath then
-                    data.nextPath = _CurTime() + math.Rand( 2, 4 )
+                    if self.DistToEnemy > self.SupercopMaxUnequipRevolverDist then
+                        data.nextPath = _CurTime() + math.Rand( 2, 4 )
+
+                    else
+                        data.nextPath = _CurTime() + math.Rand( 0.5, 1 )
+
+                    end
                     data.endedPath = nil
 
                 end
@@ -1097,7 +1123,7 @@ function ENT:DoTasks()
 
                     end
                 -- we can see enemy and our path is valid, nuke our path and just open fire
-                elseif goodEnemy and seeAndCanShoot and self:primaryPathIsValid() and ( ( math.random( 1, 100 ) < 3 ) or walkingOverAndEndCantSee ) then
+                elseif goodEnemy and seeAndCanShoot and self:primaryPathIsValid() and ( ( math.random( 1, 100 ) < 10 ) or walkingOverAndEndCantSee ) then
                     self:GetPath():Invalidate()
                     data.nextPath = _CurTime() + 1
 

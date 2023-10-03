@@ -106,10 +106,19 @@ function SWEP:DoDamage()
         } )
     end
     if tr.Hit then
+
+        local reallyMad = IsValid( owner ) and owner.IsReallyAngry and owner:IsReallyAngry()
+
         local dmg = DamageInfo()
         dmg:SetDamage( 50000 )
         dmg:SetDamageForce( owner:GetAimVector() * 15000 )
-        dmg:SetDamageType( DMG_SHOCK )
+        if reallyMad then
+            dmg:SetDamageType( DMG_BLAST )
+
+        else
+            dmg:SetDamageType( DMG_SHOCK )
+
+        end
         dmg:SetAttacker( owner )
         dmg:SetInflictor( self )
         tr.Entity:TakeDamageInfo( dmg )
