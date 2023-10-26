@@ -48,6 +48,19 @@ ENT.StuffToSay = {}
 local SUPERCOP_MODEL = "models/player/police.mdl"
 ENT.ARNOLD_MODEL = SUPERCOP_MODEL
 
+ENT.PhysgunDisabled = true
+
+function ENT:CanProperty()
+    return false
+
+end
+
+function ENT:CanTool()
+    return false
+
+end
+
+if not SERVER then return end
 CreateConVar( "supercop_nextbot_forcedmodel", SUPERCOP_MODEL, bit.bor( FCVAR_ARCHIVE ), "Override the supercop nextbot's spawned-in model. Model needs to be rigged for player movement" )
 
 local function supercopModel()
@@ -103,7 +116,7 @@ function ENT:MakeFootstepSound( volume, surface )
 
     if not surface then return end
 
-    local surfaceDat = util.GetSurfaceData(surface)
+    local surfaceDat = util.GetSurfaceData( surface )
     if not surfaceDat then return end
 
     local sound = foot and surfaceDat.stepRightSound or surfaceDat.stepLeftSound
@@ -343,7 +356,6 @@ function ENT:GetDesiredEnemyRelationship( ent )
         if memory == MEMORY_WEAPONIZEDNPC then
             priority = priority + -300
         else
-            disp = D_NU
             --print("boringent" )
             priority = priority + -100
         end
@@ -392,7 +404,7 @@ function ENT:AdditionalThink()
 
     local additional = math.random( 10, 15 ) / 10
 
-    local duration = SentenceDuration( sentence )
+    local duration = SentenceDuration( sentence ) or 1
     self.NextSpokenLine = CurTime() + ( duration + additional )
 
 end
@@ -511,18 +523,18 @@ function ENT:DoTasks()
 
                 local moving = self:primaryPathIsValid()
                 local doingBeatinStick = wep:GetClass() == beatinStickClass
-                local closeOrNotMoving = self.DistToEnemy < self.SupercopEquipRevolverDist or not moving
-                local notBlockShooting = self.SupercopBlockShooting < _CurTime()
+                local closeOrNotMoving = self.DistToEnemy < self.SupercopEquipRevolverDist or not moving or self:IsReallyAngry()
+                local blockShootingTimeGood = self.SupercopBlockShooting < _CurTime()
                 -- give fists logic time to work, see isfists in terminator weapons override file
                 local nextWeaponPickup = self.terminator_NextWeaponPickup or 0
 
                 if self.DistToEnemy < self.SupercopBeatingStickDist and self.NothingOrBreakableBetweenEnemy then
                     -- bring out stunstuck
-                    if not doingBeatinStick and notBlockShooting and nextWeaponPickup < _CurTime() then
+                    if not doingBeatinStick and blockShootingTimeGood and nextWeaponPickup < _CurTime() then
                         self.PreventShooting = nil
                         self.DoHolster = nil
                         self:Give( beatinStickClass )
-                        self.SupercopBlockShooting = _CurTime() + 0.3
+                        self.SupercopBlockShooting = _CurTime() + 0.2
                         self:PlaySentence( stunstuckEquip )
                         self.SupercopBlockOlReliable = _CurTime() + math.Rand( 2, 3 )
 
@@ -530,9 +542,9 @@ function ENT:DoTasks()
 
                 elseif doingBeatinStick then
                     -- put away stunstick
-                    if notBlockShooting and nextWeaponPickup < CurTime() and self.SupercopBlockOlReliable < CurTime() then
+                    if blockShootingTimeGood and nextWeaponPickup < CurTime() and self.SupercopBlockOlReliable < CurTime() then
                         self:Give( olReliableClass )
-                        self.SupercopBlockShooting = _CurTime() + 0.8
+                        self.SupercopBlockShooting = _CurTime() + 0.4
 
                     end
                 -- bring out gun
@@ -541,7 +553,7 @@ function ENT:DoTasks()
                     self:PlaySentence( weaponWarn )
 
                     -- as ply tests bot, increase the dist that we pull out the gun at.
-                    self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, _CurTime() + 1.5 )
+                    self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, _CurTime() + 0.75 )
                     self.PreventShooting = nil
 
                     local increased = self.SupercopEquipRevolverDist + self.EquipDistRampup
@@ -549,7 +561,7 @@ function ENT:DoTasks()
                     self.SupercopEquipRevolverDist = increased
 
                 -- put away gun
-                elseif self.DistToEnemy > ( self.SupercopEquipRevolverDist + 250 ) and moving and notBlockShooting then
+                elseif self.DistToEnemy > ( self.SupercopEquipRevolverDist + 250 ) and moving and blockShootingTimeGood and not self:IsReallyAngry() then
                     self.DoHolster = true
                     self.PreventShooting = true
 
@@ -569,11 +581,12 @@ function ENT:DoTasks()
                     self.OldDoHolster = self.DoHolster
 
                 end
-                local blockShooting = not notBlockShooting or self.DoHolster or self.PreventShooting or not self.NothingOrBreakableBetweenEnemy or self.SupercopBlockShooting > _CurTime()
+                local tooLongSinceSeen = math.abs( self.LastEnemySpotTime - _CurTime() ) > 4
+                local blockShooting = not blockShootingTimeGood or self.DoHolster or self.PreventShooting or not self.NothingOrBreakableBetweenEnemy or self.SupercopBlockShooting > _CurTime() or tooLongSinceSeen
                 -- by default, aim at the last spot we saw enemy
                 local toAimAt = self.LastEnemyShootPos
-                -- ok we see enemy, aim right at them
-                -- it has wallhacks, but this makes it look like it doesn't 
+                -- otherwise, if we see enemy, aim right at them
+                -- basically don't always aim at entshootpos  
                 if self.IsSeeEnemy then
                     toAimAt = self:EntShootPos( enemy )
 
@@ -598,12 +611,10 @@ function ENT:DoTasks()
                     end
                 elseif wep:Clip1() <= 0 and wep:GetMaxClip1() > 0 and lostEnemyForASec then
                     self:WeaponReload()
-                    print( lostEnemyForASec, "a" )
                     self.OldDoHolster = nil
 
                 elseif wep:GetMaxClip1() > 0 and self.NothingOrBreakableBetweenEnemy and needToReload then
                     self:WeaponReload()
-                    print( lostEnemyForASec, "b" )
                     self.OldDoHolster = nil
 
                 else

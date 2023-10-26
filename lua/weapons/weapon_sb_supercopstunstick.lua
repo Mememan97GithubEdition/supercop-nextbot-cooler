@@ -231,7 +231,7 @@ function SWEP:GetNPCRestTimes()
 end
 
 function SWEP:GetCapabilities()
-    return CAP_WEAPON_RANGE_ATTACK1
+    return CAP_WEAPON_MELEE_ATTACK1
 end
 
 function SWEP:DrawWorldModel()

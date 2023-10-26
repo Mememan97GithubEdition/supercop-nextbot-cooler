@@ -368,20 +368,3 @@ else
         end )
     end )
 end
-
-local _IsValid = IsValid
-
-hook.Add( "CanTool", "supercop_nextbot_blocktooling", function( _, tr )
-    if tr.Hit and _IsValid( tr.Entity ) and tr.Entity == supercop_nextbot_copThatExists then return false end
-
-end )
-
-hook.Add( "PhysgunPickup", "supercop_nextbot_blockphysgun", function( _, pickedUp )
-    if _IsValid( pickedUp ) and pickedUp == supercop_nextbot_copThatExists then return false end
-
-end )
-
-hook.Add( "CanProperty", "supercop_nextbot_blockcontext", function( _, _, toProperty )
-    if _IsValid( toProperty ) and toProperty == supercop_nextbot_copThatExists then return false end
-
-end )

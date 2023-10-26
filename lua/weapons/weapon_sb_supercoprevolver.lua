@@ -55,6 +55,7 @@ function SWEP:PrimaryAttack()
     if not self:CanPrimaryAttack() then return end
 
     local owner = self:GetOwner()
+    local reallyMad = IsValid( owner ) and owner.IsReallyAngry and owner:IsReallyAngry()
     owner.SupercopBlockShooting = CurTime() + 1.5
     self:SetWeaponHoldType( "revolver" )
 
@@ -77,6 +78,15 @@ function SWEP:PrimaryAttack()
 
             util.Effect( "StriderTracer", tracerEffect ) -- BIG effect
 
+            if reallyMad and IsValid( trace.Entity ) then
+                damage = DamageInfo()
+                damage:SetDamage( 5000000 )
+                damage:SetDamageType( DMG_BLAST )
+                damage:SetAttacker( owner )
+                damage:SetInflictor( self )
+                trace.Entity:TakeDamageInfo( damage )
+
+            end
         end
     } )
 
