@@ -368,3 +368,8 @@ else
         end )
     end )
 end
+
+hook.Add( "PhysgunPickup", "supercop_nextbot_respect_physdisabled", function( _, pickedUp )
+    if IsValid( pickedUp ) and pickedUp.PhysgunDisabled then return false end
+
+end )
