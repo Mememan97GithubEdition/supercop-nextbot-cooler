@@ -16,6 +16,9 @@ if CLIENT then
     language.Add( "sb_advanced_nextbot_terminator_hunter_supercop", ENT.PrintName )
     return
 
+else
+    include( "doorbash.lua" )
+
 end
 
 ENT.JumpHeight = 80
@@ -27,7 +30,7 @@ ENT.StepHeight = ENT.StandingStepHeight
 ENT.PathGoalToleranceFinal = 35
 ENT.SpawnHealth = 5000000
 ENT.AimSpeed = 150
-ENT.WalkSpeed = 50
+ENT.WalkSpeed = 55
 ENT.RunSpeed = 100
 ENT.AccelerationSpeed = 1000
 ENT.DeathDropHeight = 1000
@@ -36,7 +39,7 @@ ENT.InformRadius = 0
 ENT.DontDropPrimary = true
 ENT.LookAheadOnlyWhenBlocked = true
 ENT.isTerminatorHunterChummy = false
-ENT.DoMetallicDamage = true
+ENT.DoMetallicDamage = true -- metallic fx like bullet ricochet sounds
 ENT.ReallyStrong = false -- no metallic jumping sounds
 ENT.alwaysManiac = true -- fights other terminator based npcs, or other supercops
 ENT.HasFists = true
@@ -347,6 +350,13 @@ function ENT:GetDesiredEnemyRelationship( ent )
     if ent:IsPlayer() then
         priority = 1
     elseif ent:IsNPC() or ent:IsNextBot() then
+        local obj = ent:GetPhysicsObject()
+        if not IsValid( obj ) then
+            disp = D_NU
+            priority = 0
+            return disp,priority,theirdisp
+
+        end
         local memories = {}
         if self.awarenessMemory then
             memories = self.awarenessMemory
@@ -779,6 +789,7 @@ function ENT:DoTasks()
 
                         if self:CanSeePosition( newenemy ) then
                             self.LastEnemyShootPos = self:EntShootPos( newenemy )
+                            self.AimAtEnemyShootPosTime = CurTime() + 10
                             self:UpdateEnemyMemory( newenemy, newenemy:GetPos() )
 
                         end
@@ -789,6 +800,12 @@ function ENT:DoTasks()
                         end
                         data.HasEnemy = false
                         self.IsSeeEnemy = false
+
+                    end
+
+                    local stopShootingTime = self.AimAtEnemyShootPosTime or 0
+                    if stopShootingTime < CurTime() then
+                        self.LastEnemyShootPos = nil
 
                     end
 

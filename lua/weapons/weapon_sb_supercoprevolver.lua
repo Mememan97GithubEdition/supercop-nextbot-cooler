@@ -48,6 +48,192 @@ function SWEP:CanSecondaryAttack()
     return false
 end
 
+local function olReliableTrace( start, endpos )
+    local tracerEffect = EffectData()
+    tracerEffect:SetStart( start )
+    tracerEffect:SetOrigin( endpos )
+    tracerEffect:SetScale( 25000 ) -- fast
+    tracerEffect:SetFlags( 0x0001 ) --whiz!
+    util.Effect( "AirboatGunHeavyTracer", tracerEffect ) -- BIG effect
+
+    util.ScreenShake( start, 10, 20, 0.1, 500, true )
+    util.ScreenShake( endpos, 10, 20, 0.1, 500, true )
+
+end
+
+
+local bulletMissSounds = {
+    "weapons/fx/nearmiss/bulletLtor03.wav",
+    "weapons/fx/nearmiss/bulletLtor04.wav",
+    "weapons/fx/nearmiss/bulletLtor06.wav",
+    "weapons/fx/nearmiss/bulletLtor07.wav",
+    "weapons/fx/nearmiss/bulletLtor09.wav",
+    "weapons/fx/nearmiss/bulletLtor10.wav",
+    "weapons/fx/nearmiss/bulletLtor13.wav",
+    "weapons/fx/nearmiss/bulletLtor14.wav"
+}
+
+local function bulletWhiz( pos )
+    local missSound = bulletMissSounds[math.random( #bulletMissSounds )]
+    sound.Play( missSound, pos, 70, math.random( 65, 80 ), 1 )
+
+end
+
+-- COPIED FROM CFCm9kmonorepo
+-- https://github.com/CFC-Servers/m9k_monorepo/blob/main/lua/weapons/bobs_gun_base/shared.lua
+
+--[[---------------------------------------------------------
+   Name: SWEP:BulletCallback()
+   Desc: A convenience func to handle bullet callbacks.
+-------------------------------------------------------]]
+local maxIterations = 100
+
+local penetrationDepth = 20
+
+local penetrationDamageMult = {
+    [MAT_CONCRETE] = 0.3,
+    [MAT_METAL] = 0.3,
+    [MAT_WOOD] = 0.8,
+    [MAT_PLASTIC] = 0.8,
+    [MAT_GLASS] = 0.8,
+    [MAT_FLESH] = 0.9,
+    [MAT_ALIENFLESH] = 0.9
+}
+
+local easyPenMaterials = {
+    [MAT_GLASS] = true,
+    [MAT_PLASTIC] = true,
+    [MAT_WOOD] = true,
+    [MAT_FLESH] = true,
+    [MAT_ALIENFLESH] = true
+
+}
+
+local spreadVec = Vector( 0, 0, 0 )
+
+function SWEP:BulletCallback( iteration, attacker, bulletTrace, dmginfo, direction )
+    if CLIENT then return end
+    if bulletTrace.HitSky then return end
+
+    iteration = iteration and iteration + 1 or 0
+    if iteration > maxIterations then return end
+
+    direction = direction or bulletTrace.Normal
+
+    supercop_HandleDoor( self, bulletTrace )
+
+    local penetrated = self:BulletPenetrate( iteration, attacker, bulletTrace, dmginfo, direction )
+    if penetrated then return end
+
+    local ricochet = self:BulletRicochet( iteration, attacker, bulletTrace, dmginfo, direction )
+    if ricochet then return end
+
+end
+
+function SWEP:BulletPenetrate( iteration, attacker, bulletTrace, dmginfo, direction )
+    local penDepth = penetrationDepth or 5
+    local penDirection = direction * penDepth
+    if easyPenMaterials[bulletTrace.MatType] then
+        penDirection = direction * penDepth * 2
+    end
+
+    local hitEnt = bulletTrace.Entity
+    local penTrace = nil
+
+    for _ = 1, math.abs( iteration - maxIterations ) do
+        penTrace = util.TraceLine( {
+            endpos = bulletTrace.HitPos,
+            start = bulletTrace.HitPos + penDirection,
+            mask = MASK_SHOT,
+            filter = function( ent )
+                return ent == hitEnt
+            end
+        } )
+
+        if penTrace.AllSolid and penTrace.HitWorld then continue end
+        if not penTrace.Hit then continue end
+        if penTrace.Fraction >= 0.99 or penTrace.Fraction <= 0.01 then continue end
+
+    end
+
+    if not penTrace then return end
+
+    --debugoverlay.Line( bulletTrace.HitPos + penDirection, penTrace.HitPos, 10, Color( 255, 0, 0 ), true )
+
+    --debugoverlay.Text( penTrace.HitPos, "Pen:" .. tostring( iteration ), 10 )
+    local damageMult = penetrationDamageMult[penTrace.MatType] or 0.5
+    local bullet = {
+        Num = 1,
+        Src = penTrace.HitPos,
+        Dir = direction,
+        Spread = spreadVec,
+        Tracer = 1,
+        TracerName = "m9k_effect_mad_penetration_trace_mod",
+        Force = 5,
+        Damage = dmginfo:GetDamage() * damageMult,
+        Callback = function( a, b, c )
+            if not IsValid( self ) then return end
+            olReliableTrace( penTrace.HitPos, b.HitPos )
+            self:BulletCallback( iteration, a, b, c, direction )
+        end
+    }
+
+    timer.Simple( 0, function()
+        attacker:FireBullets( bullet )
+    end )
+
+    return true
+end
+
+function SWEP:BulletRicochet( iteration, attacker, bulletTrace, dmginfo, direction )
+    if bulletTrace.MatType ~= MAT_METAL and math.random( 1, 100 ) < 50 then
+        bulletWhiz( bulletTrace.HitPos )
+
+        if self.Tracer == 0 or self.Tracer == 1 or self.Tracer == 2 then
+            local effectdata = EffectData()
+            effectdata:SetOrigin( bulletTrace.HitPos )
+            effectdata:SetNormal( bulletTrace.HitNormal )
+            effectdata:SetScale( 20 )
+            util.Effect( "AR2Impact", effectdata )
+        elseif self.Tracer == 3 then
+            local effectdata = EffectData()
+            effectdata:SetOrigin( bulletTrace.HitPos )
+            effectdata:SetNormal( bulletTrace.HitNormal )
+            effectdata:SetScale( 20 )
+            util.Effect( "StunstickImpact", effectdata )
+        end
+
+        return false
+    end
+
+    local dotProduct = bulletTrace.HitNormal:Dot( direction * -1 )
+    local bullet = {
+        Num = 1,
+        Src = bulletTrace.HitPos + bulletTrace.HitNormal,
+        Dir = ( ( 2 * bulletTrace.HitNormal * dotProduct ) + direction ) + ( VectorRand() * 0.05 ),
+        Spread = spreadVec,
+        Tracer = SERVER and 1 or 0,
+        TracerName = "m9k_effect_mad_ricochet_trace_mod",
+        Force = dmginfo:GetDamage() * 0.15,
+        Damage = dmginfo:GetDamage() * 0.5,
+        Callback = function( a, b, c )
+            if not IsValid( self ) then return end
+            bulletWhiz( bulletTrace.HitPos )
+            olReliableTrace( bulletTrace.HitPos + bulletTrace.HitNormal, b.HitPos )
+            self:BulletCallback( iteration, a, b, c )
+
+        end
+    }
+
+    --debugoverlay.Line( bulletTrace.HitPos, bulletTrace.HitPos + bullet.Dir * 100, 10, SERVER and Color( 255, 0, 0 ) or Color( 0, 255, 0 ), true )
+
+    timer.Simple( 0, function()
+        attacker:FireBullets( bullet )
+    end )
+
+    return true
+end
+
 local MAX_TRACE_LENGTH    = 56756
 local vec3_origin        = vector_origin
 
@@ -59,32 +245,34 @@ function SWEP:PrimaryAttack()
     owner.SupercopBlockShooting = CurTime() + 1.5
     self:SetWeaponHoldType( "revolver" )
 
+    local damageDealt = 5000
+    if reallyMad then
+        damageDealt = 5000000
+
+    end
+
     owner:FireBullets( {
         Num = 1,
         Src = owner:GetShootPos(),
         Dir = owner:GetAimVector(),
         Spread = vec3_origin,
         Distance = MAX_TRACE_LENGTH,
-        Damage = 5000,
+        Damage = damageDealt,
         Tracer = 0,
-        Force = 1,
+        Force = damageDealt * 0.15,
         Attacker = owner,
-        Callback = function( _, trace )
-            local tracerEffect = EffectData()
-            tracerEffect:SetStart( owner:GetShootPos() )
-            tracerEffect:SetOrigin( trace.HitPos )
-            tracerEffect:SetScale( 25000 ) -- fast
-            tracerEffect:SetFlags( 0x0001 ) --whiz!
+        Callback = function( attacker, tracedata, damageInfo )
+            olReliableTrace( owner:GetShootPos(), tracedata.HitPos )
+            self:BulletCallback( 0, attacker, tracedata, damageInfo )
 
-            util.Effect( "StriderTracer", tracerEffect ) -- BIG effect
-
-            if reallyMad and IsValid( trace.Entity ) then
+            -- kill combine npcs
+            if reallyMad and IsValid( tracedata.Entity ) then
                 damage = DamageInfo()
-                damage:SetDamage( 5000000 )
+                damage:SetDamage( damageDealt )
                 damage:SetDamageType( DMG_BLAST )
                 damage:SetAttacker( owner )
                 damage:SetInflictor( self )
-                trace.Entity:TakeDamageInfo( damage )
+                tracedata.Entity:TakeDamageInfo( damage )
 
             end
         end

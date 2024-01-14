@@ -107,6 +107,7 @@ function SWEP:DoDamage()
     end
     if tr.Hit then
 
+        supercop_HandleDoor( self, tr )
         local reallyMad = IsValid( owner ) and owner.IsReallyAngry and owner:IsReallyAngry()
 
         local dmg = DamageInfo()

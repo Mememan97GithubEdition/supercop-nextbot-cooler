@@ -1,7 +1,7 @@
 supercop_nextbot_copSpawnpoints = supercop_nextbot_copSpawnpoints or {}
 
 hook.Add( "PlayerInitialSpawn", "supercop_nextbot_storegenericspawnpoints", function( spawned )
-    timer.Simple( 1, function()
+    timer.Simple( 2, function()
         if not IsValid( spawned ) then return end
         if #supercop_nextbot_copSpawnpoints > 20 then return end
         if spawned:Health() <= 0 then return end
