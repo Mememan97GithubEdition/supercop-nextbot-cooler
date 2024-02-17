@@ -1,13 +1,3 @@
-local function DoorHitSound( ent )
-    ent:EmitSound( "ambient/materials/door_hit1.wav", 100, math.random( 80, 120 ) )
-
-end
-local function BreakSound( ent )
-    local Snd = "physics/wood/wood_furniture_break" .. tostring( math.random( 1, 2 ) ) .. ".wav"
-    ent:EmitSound( Snd, 110, math.random( 80, 90 ) )
-
-end
-
 local function LockBustSound( ent )
     ent:EmitSound( "doors/vent_open1.wav", 100, 80, 1, CHAN_STATIC )
     ent:EmitSound( "physics/metal/metal_solid_strain3.wav", 100, 200, 1, CHAN_STATIC )
@@ -40,57 +30,13 @@ local function ModelBoundSparks( ent )
 
 end
 
--- code from the sanic nextbot, the greatest nexbot
-local function detachAreaPortals( maker, door )
-
-    local doorName = door:GetName()
-    if doorName == "" then return end
-
-    for _, portal in ipairs( ents.FindByClass( "func_areaportal" ) ) do
-        local portalTarget = portal:GetInternalVariable( "m_target" )
-        if portalTarget == doorName then
-
-            portal:Input( "Open", maker, door )
-
-            portal:SetSaveValue( "m_target", "" )
-        end
-    end
-end
-
-function supercop_MakeDoor( maker, ent )
-    local vel = maker:GetForward() * 4800
-    pos = ent:GetPos()
-    ang = ent:GetAngles()
-    mdl = ent:GetModel()
-    ski = ent:GetSkin()
-
-    detachAreaPortals( maker:GetOwner(), ent )
-
-    local getRidOf = { ent }
-    table.Add( getRidOf, ent:GetChildren() )
-    for _, toRid in pairs( getRidOf ) do
-        toRid:SetNotSolid( true )
-        toRid:SetNoDraw( true )
-    end
-    prop = ents.Create( "prop_physics" )
-    prop:SetPos( pos )
-    prop:SetAngles( ang )
-    prop:SetModel( mdl )
-    prop:SetSkin( ski or 0 )
-    prop:Spawn()
-    prop:SetVelocity( vel )
-    prop:GetPhysicsObject():ApplyForceOffset( vel, maker:GetPos() )
-    prop:SetPhysicsAttacker( maker )
-    prop:SetCollisionGroup( COLLISION_GROUP_DEBRIS )
-    DoorHitSound( prop )
-    BreakSound( prop )
-
-    prop.isBustedDoor = true
-    prop.bustedDoorHp = 400
-
-end
-
 local lockOffset = Vector( 0, 42.6, -10 )
+
+local slidingDoors = {
+    ["func_movelinear"] = true,
+    ["func_door"] = true,
+
+}
 
 function supercop_HandleDoor( maker, tr )
     if CLIENT or not IsValid( tr.Entity ) then return end
@@ -107,24 +53,19 @@ function supercop_HandleDoor( maker, tr )
 
     local doorsLocked = door:GetInternalVariable( "m_bLocked" ) == true
 
-    if class == "func_door_rotating" or class == "prop_door_rotating" then
+    local doorsObj = door:GetPhysicsObject()
+    local isProperDoor = class == "prop_door_rotating"
+    local isSlidingDoor = slidingDoors[class]
+    local isBashableSlidDoor
+    if isSlidingDoor then
+        isBashableSlidDoor = doorsObj:GetVolume() < 48880 -- magic number! 10x mass of doors on terrortrain
 
-        if terminator_Extras.CanBashDoor( door ) == false then
-            DoorHitSound( door )
-        else
-            supercop_MakeDoor( maker, door )
+    end
 
-            if doorsLocked then
-                SparkEffect( door:GetPos() + -lockOffset )
-                LockBustSound( door )
-
-            end
-        end
-    elseif class == "func_door" and doorsLocked then
+    if isSlidingDoor and doorsLocked then
         local lockHealth = door.terminator_lockHealth
         if not door.terminator_lockHealth then
             local initialHealth = 200
-            local doorsObj = door:GetPhysicsObject()
             if doorsObj and doorsObj:IsValid() then
                 initialHealth = math.max( initialHealth, doorsObj:GetVolume() / 1250 )
 
@@ -141,7 +82,7 @@ function supercop_HandleDoor( maker, tr )
         if lockHealth <= 0 then
             lockHealth = nil
             door:Fire( "unlock", "", .01 )
-            DoorHitSound( door )
+            terminator_Extras.DoorHitSound( door )
             LockBustSound( door )
 
             util.ScreenShake( owner:GetPos(), 80, 10, 1, 1500 )
@@ -152,7 +93,7 @@ function supercop_HandleDoor( maker, tr )
             end
 
         else
-            DoorHitSound( door )
+            terminator_Extras.DoorHitSound( door )
             if lockHealth < door.terminator_lockMaxHealth * 0.45 then
                 ModelBoundSparks( door )
                 util.ScreenShake( owner:GetPos(), 10, 10, 0.5, 600 )
@@ -164,5 +105,19 @@ function supercop_HandleDoor( maker, tr )
 
         door.terminator_lockHealth = lockHealth
 
+    elseif class == "func_door_rotating" or isProperDoor or isBashableSlidDoor then
+
+        if terminator_Extras.CanBashDoor( door ) == false then
+            terminator_Extras.DoorHitSound( door )
+
+        else
+            terminator_Extras.DehingeDoor( maker, door, true )
+
+            if doorsLocked and isProperDoor then
+                SparkEffect( door:GetPos() + -lockOffset )
+                LockBustSound( door )
+
+            end
+        end
     end
 end

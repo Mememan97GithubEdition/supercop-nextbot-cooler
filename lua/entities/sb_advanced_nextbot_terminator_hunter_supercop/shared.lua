@@ -17,7 +17,7 @@ if CLIENT then
     return
 
 else
-    include( "doorbash.lua" )
+    include( "entbreaking.lua" )
 
 end
 
@@ -35,6 +35,9 @@ ENT.RunSpeed = 100
 ENT.AccelerationSpeed = 1000
 ENT.DeathDropHeight = 1000
 ENT.InformRadius = 0
+
+-- default is 500, setting this lower means supercop will ignore low priority enemies and focus on players, unless they're blocking his progress
+ENT.CloseEnemyDistance = 65
 
 ENT.DontDropPrimary = true
 ENT.LookAheadOnlyWhenBlocked = true
@@ -143,38 +146,6 @@ function ENT:MakeFootstepSound( volume, surface )
 
         end
     end
-end
-
-function ENT:ClearOrBreakable( start, endpos )
-    local tr = util.TraceLine( {
-        start = start,
-        endpos = endpos,
-        mask = MASK_SHOT,
-        filter = self,
-    } )
-
-    local hitNothingOrHitBreakable = true
-    local hitNothing = true
-    if tr.Hit then
-        hitNothing = nil
-        hitNothingOrHitBreakable = nil
-
-    end
-    if IsValid( tr.Entity ) then
-        local enemy = self:GetEnemy()
-        local isVehicle = tr.Entity:IsVehicle() and tr.Entity:GetDriver() and tr.Entity:GetDriver() == enemy
-        if enemy == tr.Entity or isVehicle then
-            hitNothingOrHitBreakable = true
-            hitNothing = true
-
-        elseif self:memorizedAsBreakable( tr.Entity ) then
-            hitNothingOrHitBreakable = true
-
-        end
-    end
-
-    return hitNothingOrHitBreakable, tr, hitNothing
-
 end
 
 function ENT:DoHardcodedRelations()
@@ -351,23 +322,28 @@ function ENT:GetDesiredEnemyRelationship( ent )
         priority = 1
     elseif ent:IsNPC() or ent:IsNextBot() then
         local obj = ent:GetPhysicsObject()
+        -- invalid npc or something, happens alot with engine ents
         if not IsValid( obj ) then
             disp = D_NU
             priority = 0
             return disp,priority,theirdisp
 
         end
+
         local memories = {}
         if self.awarenessMemory then
             memories = self.awarenessMemory
+
         end
         local key = self:getAwarenessKey( ent )
         local memory = memories[key]
+
         if memory == MEMORY_WEAPONIZEDNPC then
             priority = priority + -300
+
         else
-            --print("boringent" )
             priority = priority + -100
+
         end
     end
 
@@ -381,7 +357,7 @@ ENT.TERM_FISTS = beatinStickClass
 
 function ENT:PlaySentence( sentenceIn )
     if #self.StuffToSay >= 4 then return end -- don't add infinite stuff to say.
-    if #self.StuffToSay >= 1 and math.random( 0, 100 ) >= 50 then return end
+    if #self.StuffToSay >= 2 and math.random( 0, 100 ) >= 50 then return end
     table.insert( self.StuffToSay, sentenceIn )
 
 end
@@ -474,6 +450,38 @@ function ENT:GetAimVector()
     return dir
 end
 
+-- supercop is really angry for less time
+function ENT:IsReallyAngry()
+    local reallyAngryTime = self.terminator_ReallyAngryTime or CurTime()
+    local checkIsReallyAngry = self.terminator_CheckIsReallyAngry or 0
+
+    if checkIsReallyAngry < CurTime() then
+        self.terminator_CheckIsReallyAngry = CurTime() + 1
+        local enemy = self:GetEnemy()
+
+        if enemy and enemy.isTerminatorHunterKiller then
+            reallyAngryTime = reallyAngryTime + 60
+
+        elseif self.isUnstucking then
+            reallyAngryTime = reallyAngryTime + 5
+
+        elseif self:inSeriousDanger() then
+            reallyAngryTime = reallyAngryTime + 5
+
+        elseif self:EnemyIsUnkillable() then
+            reallyAngryTime = reallyAngryTime + 10
+
+        end
+    end
+
+    local reallyAngry = reallyAngryTime > CurTime()
+    self.terminator_ReallyAngryTime = math.max( reallyAngryTime, CurTime() )
+
+    return reallyAngry
+
+end
+
+
 local spawnProtectionLength     = CreateConVar( "supercop_nextbot_spawnprot_copspawn",  10, bit.bor( FCVAR_ARCHIVE ), "Bot won't shoot until it's been alive for this long", 0, 60 )
 local plyspawnProtectionLength  = CreateConVar( "supercop_nextbot_spawnprot_ply",       5, bit.bor( FCVAR_ARCHIVE ), "Don't shoot players until they've been alive for this long.", 0, 60 )
 
@@ -485,11 +493,11 @@ ENT.SupercopBlockOlReliable = 0
 ENT.SupercopBlockShooting = 0
 ENT.NextPickupTheCanLine = 0
 
-local _CurTime = CurTime
+local CurTime = CurTime
 local ignorePlayers = GetConVar( "ai_ignoreplayers" )
 
 hook.Add( "PlayerSpawn", "supercop_plyspawnprotection", function( spawned )
-    spawned.Supercop_SpawnProtection = _CurTime() + plyspawnProtectionLength:GetInt()
+    spawned.Supercop_SpawnProtection = CurTime() + plyspawnProtectionLength:GetInt()
 
 end )
 
@@ -501,10 +509,10 @@ function ENT:AdditionalInitialize()
     self:SetBloodColor( DONT_BLEED )
 
     local spawnProt = spawnProtectionLength:GetInt()
-    self.SupercopJustspawnedBlockShooting = _CurTime() + spawnProt
-    self.SupercopJustspawnedBlockBeatstick = _CurTime() + ( spawnProt * 0.25 )
+    self.SupercopJustspawnedBlockShooting = CurTime() + spawnProt
+    self.SupercopJustspawnedBlockBeatstick = CurTime() + ( spawnProt * 0.25 )
 
-    self.LastEnemySpotTime = _CurTime()
+    self.LastEnemySpotTime = CurTime()
 
 end
 
@@ -534,19 +542,19 @@ function ENT:DoTasks()
                 local moving = self:primaryPathIsValid()
                 local doingBeatinStick = wep:GetClass() == beatinStickClass
                 local closeOrNotMoving = self.DistToEnemy < self.SupercopEquipRevolverDist or not moving or self:IsReallyAngry()
-                local blockShootingTimeGood = self.SupercopBlockShooting < _CurTime()
+                local blockShootingTimeGood = self.SupercopBlockShooting < CurTime()
                 -- give fists logic time to work, see isfists in terminator weapons override file
                 local nextWeaponPickup = self.terminator_NextWeaponPickup or 0
 
                 if self.DistToEnemy < self.SupercopBeatingStickDist and self.NothingOrBreakableBetweenEnemy then
                     -- bring out stunstuck
-                    if not doingBeatinStick and blockShootingTimeGood and nextWeaponPickup < _CurTime() then
+                    if not doingBeatinStick and blockShootingTimeGood and nextWeaponPickup < CurTime() then
                         self.PreventShooting = nil
                         self.DoHolster = nil
                         self:Give( beatinStickClass )
-                        self.SupercopBlockShooting = _CurTime() + 0.2
+                        self.SupercopBlockShooting = CurTime() + 0.2
                         self:PlaySentence( stunstuckEquip )
-                        self.SupercopBlockOlReliable = _CurTime() + math.Rand( 2, 3 )
+                        self.SupercopBlockOlReliable = CurTime() + math.Rand( 2, 3 )
 
                     end
 
@@ -554,7 +562,7 @@ function ENT:DoTasks()
                     -- put away stunstick
                     if blockShootingTimeGood and nextWeaponPickup < CurTime() and self.SupercopBlockOlReliable < CurTime() then
                         self:Give( olReliableClass )
-                        self.SupercopBlockShooting = _CurTime() + 0.4
+                        self.SupercopBlockShooting = CurTime() + 0.4
 
                     end
                 -- bring out gun
@@ -562,10 +570,10 @@ function ENT:DoTasks()
                     self.DoHolster = nil
                     self:PlaySentence( weaponWarn )
 
-                    -- as ply tests bot, increase the dist that we pull out the gun at.
-                    self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, _CurTime() + 0.75 )
+                    self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, CurTime() + 0.75 )
                     self.PreventShooting = nil
 
+                    -- as ply tests bot, increase the dist that we pull out the gun at.
                     local increased = self.SupercopEquipRevolverDist + self.EquipDistRampup
                     increased = math.Clamp( increased, 0, self.SupercopMaxUnequipRevolverDist + -250 )
                     self.SupercopEquipRevolverDist = increased
@@ -581,9 +589,11 @@ function ENT:DoTasks()
                 local needToReload = ( wep:Clip1() < wep:GetMaxClip1() / 2 ) or ( wep:Clip1() < wep:GetMaxClip1() and self.DoHolster )
 
                 if self.DoHolster ~= self.OldDoHolster then
+                    -- gun was reloaded and i dont need to shoot right now
                     if self.DoHolster and wep:Clip1() == wep:GetMaxClip1() then
                         wep:SetWeaponHoldType( "passive" )
 
+                    -- i need to shoot!
                     elseif self.DoHolster ~= true then
                         wep:SetWeaponHoldType( "revolver" )
 
@@ -591,8 +601,8 @@ function ENT:DoTasks()
                     self.OldDoHolster = self.DoHolster
 
                 end
-                local tooLongSinceSeen = math.abs( self.LastEnemySpotTime - _CurTime() ) > 4
-                local blockShooting = not blockShootingTimeGood or self.DoHolster or self.PreventShooting or not self.NothingOrBreakableBetweenEnemy or self.SupercopBlockShooting > _CurTime() or tooLongSinceSeen
+                local tooLongSinceSeen = math.abs( self.LastEnemySpotTime - CurTime() ) > 4
+                local blockShooting = not blockShootingTimeGood or self.DoHolster or self.PreventShooting or not self.NothingOrBreakableBetweenEnemy or self.SupercopBlockShooting > CurTime() or tooLongSinceSeen
                 -- by default, aim at the last spot we saw enemy
                 local toAimAt = self.LastEnemyShootPos
                 -- otherwise, if we see enemy, aim right at them
@@ -604,20 +614,29 @@ function ENT:DoTasks()
 
                 if IsValid( enemy ) and not blockShooting then
                     local enemySpawnProtEnds = enemy.Supercop_SpawnProtection or 0
-                    local enemyIsSpawnProtected = enemySpawnProtEnds > _CurTime()
+                    local enemyIsSpawnProtected = enemySpawnProtEnds > CurTime()
 
                     if doingBeatinStick then
                         self:shootAt( toAimAt, true )
                         -- beating stick gets a shorter cooldown after bot spawned, and ignores per-player spawnprotection
-                        if ( self.DistToEnemy < wep.Range * 1.25 ) and self.SupercopJustspawnedBlockBeatstick < _CurTime() then
+                        if ( self.DistToEnemy < wep.Range * 1.25 ) and self.SupercopJustspawnedBlockBeatstick < CurTime() then
                             self:WeaponPrimaryAttack()
 
                         end
                     else
                         -- dont shoot if bot just spawned, or enemy just spawned
-                        local protected = ( self.SupercopJustspawnedBlockShooting > _CurTime() ) or enemyIsSpawnProtected
-                        self:shootAt( toAimAt, protected )
+                        local protected = ( self.SupercopJustspawnedBlockShooting > CurTime() ) or enemyIsSpawnProtected
+                        local shootableVolatile = self:getShootableVolatile( enemy )
 
+                        -- attack barrel next to ply!
+                        if IsValid( shootableVolatile ) and not protected then
+                            self:shootAt( self:getBestPos( shootableVolatile ), false, 4 )
+
+                        -- attack ply!
+                        else
+                            self:shootAt( toAimAt, protected, 4 )
+
+                        end
                     end
                 elseif wep:Clip1() <= 0 and wep:GetMaxClip1() > 0 and lostEnemyForASec then
                     self:WeaponReload()
@@ -628,6 +647,7 @@ function ENT:DoTasks()
                     self.OldDoHolster = nil
 
                 else
+                    -- look at enemy, block shooting
                     self:shootAt( toAimAt, true )
 
                 end
@@ -640,15 +660,15 @@ function ENT:DoTasks()
         ["awareness_handler"] = {
             BehaveUpdate = function( self, data, interval )
                 local nextAware = data.nextAwareness or 0
-                if nextAware < _CurTime() then
-                    data.nextAwareness = _CurTime() + 1.5
+                if nextAware < CurTime() then
+                    data.nextAwareness = CurTime() + 1.5
                     self:understandSurroundings()
                 end
             end,
         },
         ["enemy_handler"] = {
             OnStart = function( self, data )
-                data.UpdateEnemies = _CurTime()
+                data.UpdateEnemies = CurTime()
                 data.HasEnemy = false
                 data.playerCheckIndex = 0
                 data.blockSwitchingEnemies = 0
@@ -660,8 +680,8 @@ function ENT:DoTasks()
                     local prevenemy = self:GetEnemy()
                     local newenemy = prevenemy
 
-                    if forceupdateenemies or not data.UpdateEnemies or _CurTime() > data.UpdateEnemies or data.HasEnemy and not IsValid( prevenemy ) then
-                        data.UpdateEnemies = _CurTime() + 0.5
+                    if forceupdateenemies or not data.UpdateEnemies or CurTime() > data.UpdateEnemies or data.HasEnemy and not IsValid( prevenemy ) then
+                        data.UpdateEnemies = CurTime() + 0.5
 
                         self:FindEnemies()
 
@@ -672,7 +692,7 @@ function ENT:DoTasks()
                             local pickedPlayer = allPlayers[data.playerCheckIndex]
 
                             local didForceEnemy
-                            local tooLongSinceLastEnemy = ( self.LastEnemySpotTime + 20 ) < _CurTime()
+                            local tooLongSinceLastEnemy = ( self.LastEnemySpotTime + 20 ) < CurTime()
 
                             -- check if alive etc
                             -- MESSY but it's better than it going off to the right
@@ -725,7 +745,7 @@ function ENT:DoTasks()
                             local enemyPos = enemy:GetPos()
                             if not self.EnemyLastPos then self.EnemyLastPos = enemyPos end
 
-                            self.LastEnemySpotTime = _CurTime()
+                            self.LastEnemySpotTime = CurTime()
                             self.DistToEnemy = self:GetPos():Distance( enemyPos )
                             self.IsSeeEnemy = self:CanSeePosition( enemy )
                             self.NothingOrBreakableBetweenEnemy = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ) )
@@ -831,7 +851,7 @@ function ENT:DoTasks()
         -- if failed path to enemy, bail too
         ["movement_followenemy"] = {
             OnStart = function( self, data )
-                data.nextTauntLine = _CurTime() + 8
+                data.nextTauntLine = CurTime() + 8
 
                 self:GetPath():Invalidate()
 
@@ -855,7 +875,7 @@ function ENT:DoTasks()
                     if not reachable then data.Unreachable = true return end
 
                     local posOnNav = result.pos
-                    self:SetupPath2( posOnNav )
+                    self:SetupPathShell( posOnNav )
 
                     if not self:primaryPathIsValid() then data.Unreachable = true return end
 
@@ -902,14 +922,14 @@ function ENT:DoTasks()
                     self:StartTask2( "movement_maintainlos", nil, "no enemy to follow!" )
 
                 else
-                    if data.nextTauntLine < _CurTime() then
+                    if data.nextTauntLine < CurTime() then
                         if self.IsSeeEnemy then
                             self:PlaySentence( approachingEnemyVisible )
-                            data.nextTauntLine = _CurTime() + math.Rand( 7, 13 )
+                            data.nextTauntLine = CurTime() + math.Rand( 7, 13 )
 
                         else
                             self:PlaySentence( approachingEnemyObscured )
-                            data.nextTauntLine = _CurTime() + math.Rand( 13, 20 )
+                            data.nextTauntLine = CurTime() + math.Rand( 13, 20 )
 
                         end
                     end
@@ -933,7 +953,7 @@ function ENT:DoTasks()
                     data.tryAndApproach[enemy:GetCreationID()] = CurTime() + 11
 
                 end
-                data.nextTauntLine = _CurTime() + 8
+                data.nextTauntLine = CurTime() + 8
                 local distToShootpos = self:GetPos():Distance( self:GetShootPos() )
                 data.offsetToShootPos = Vector( 0, 0, distToShootpos )
 
@@ -958,7 +978,7 @@ function ENT:DoTasks()
 
                 if goodEnemy then
                     local time = data.tryAndApproach[enemy:GetCreationID()]
-                    canTryToApproach = not time or time < _CurTime()
+                    canTryToApproach = not time or time < CurTime()
 
                 end
 
@@ -978,7 +998,7 @@ function ENT:DoTasks()
                 local walkingOverAndEndCantSee = not data.wander and self:primaryPathIsValid() and data.endToEnemyBlockedCount > 15
 
                 local newPath = standingStillAndCantSee or walkingOverAndEndCantSee
-                if newPath and data.nextPath < _CurTime() then
+                if newPath and data.nextPath < CurTime() then
                     local enemysShootPos = nil
                     local enemsCrouchShootPos = nil
                     if not data.wander then
@@ -1103,18 +1123,18 @@ function ENT:DoTasks()
 
                     local result = terminator_Extras.getNearestPosOnNav( posWithSightline )
                     local posOnNav = result.pos
-                    self:SetupPath2( posOnNav )
+                    self:SetupPathShell( posOnNav )
 
-                    data.nextPath = _CurTime() + math.Rand( 0.25, 0.5 )
+                    data.nextPath = CurTime() + math.Rand( 0.25, 0.5 )
                     --debugoverlay.Cross( posOnNav, 100, 1, color_white, true )
 
                     if not self:primaryPathIsValid() then return end
-                    data.nextPath = _CurTime() + math.Rand( 0.5, 1 )
+                    data.nextPath = CurTime() + math.Rand( 0.5, 1 )
 
                 end
 
                 if not newPath and goodEnemy then
-                    data.nextPath = math.max( _CurTime() + 1, data.nextPath )
+                    data.nextPath = math.max( CurTime() + 1, data.nextPath )
 
                 end
 
@@ -1125,10 +1145,10 @@ function ENT:DoTasks()
 
                 if pathResult == true and not data.endedPath then
                     if self.DistToEnemy > self.SupercopMaxUnequipRevolverDist then
-                        data.nextPath = _CurTime() + math.Rand( 2, 4 )
+                        data.nextPath = CurTime() + math.Rand( 2, 4 )
 
                     else
-                        data.nextPath = _CurTime() + math.Rand( 0.5, 1 )
+                        data.nextPath = CurTime() + math.Rand( 0.5, 1 )
 
                     end
                     data.endedPath = nil
@@ -1153,17 +1173,17 @@ function ENT:DoTasks()
                 -- we can see enemy and our path is valid, nuke our path and just open fire
                 elseif goodEnemy and seeAndCanShoot and self:primaryPathIsValid() and ( ( math.random( 1, 100 ) < 10 ) or walkingOverAndEndCantSee ) then
                     self:GetPath():Invalidate()
-                    data.nextPath = _CurTime() + 1
+                    data.nextPath = CurTime() + 1
 
                 else
-                    if data.nextTauntLine < _CurTime() then
+                    if data.nextTauntLine < CurTime() then
                         if self.IsSeeEnemy then
                             self:PlaySentence( approachingEnemyVisible )
-                            data.nextTauntLine = _CurTime() + math.Rand( 7, 13 )
+                            data.nextTauntLine = CurTime() + math.Rand( 7, 13 )
 
                         else
                             self:PlaySentence( approachingEnemyObscured )
-                            data.nextTauntLine = _CurTime() + math.Rand( 13, 20 )
+                            data.nextTauntLine = CurTime() + math.Rand( 13, 20 )
 
                         end
                     end

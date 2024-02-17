@@ -8,7 +8,7 @@ SWEP.Purpose = "It's nuclear powered!"
 
 SWEP.ViewModel = "models/weapons/v_stunbaton.mdl"
 SWEP.WorldModel = "models/weapons/w_stunbaton.mdl"
-SWEP.Weight = 3
+SWEP.Weight = 3214214
 
 if CLIENT then
     killicon.AddFont( "weapon_sb_supercopstunstick", "HL2MPTypeDeath", "!", Color( 255, 80, 0 ) )
@@ -110,9 +110,10 @@ function SWEP:DoDamage()
         supercop_HandleDoor( self, tr )
         local reallyMad = IsValid( owner ) and owner.IsReallyAngry and owner:IsReallyAngry()
 
+        local hitEnt = tr.Entity
+
         local dmg = DamageInfo()
-        dmg:SetDamage( 50000 )
-        dmg:SetDamageForce( owner:GetAimVector() * 15000 )
+        dmg:SetDamageForce( owner:GetAimVector() * 150000 )
         if reallyMad then
             dmg:SetDamageType( DMG_BLAST )
 
@@ -120,18 +121,32 @@ function SWEP:DoDamage()
             dmg:SetDamageType( DMG_SHOCK )
 
         end
+
         dmg:SetAttacker( owner )
         dmg:SetInflictor( self )
-        tr.Entity:TakeDamageInfo( dmg )
+
+        if hitEnt.HasGodMode and hitEnt:HasGodMode() then
+            dmg:SetDamageType( DMG_SHOCK )
+            hitEnt:GodDisable()
+
+            dmg:SetDamage( math.random( 1, 10 ) )
+            hitEnt:TakeDamageInfo( dmg )
+            hitEnt:GodEnable()
+
+        else
+            dmg:SetDamage( 150000 )
+            hitEnt:TakeDamageInfo( dmg )
+
+        end
 
         stickEffect( tr.HitPos, tr.HitNormal, 1 )
 
         util.ScreenShake( owner:GetPos(), 10, 10, 0.25, 1000, true )
 
-        if tr.Entity:GetInternalVariable( "m_bLocked" ) == true then
-            tr.Entity:Fire( "unlock", "", .01 )
-            SparkEffect( tr.Entity:GetPos() + -lockOffset )
-            LockBustSound( tr.Entity )
+        if hitEnt:GetInternalVariable( "m_bLocked" ) == true then
+            hitEnt:Fire( "unlock", "", .01 )
+            SparkEffect( hitEnt:GetPos() + -lockOffset )
+            LockBustSound( hitEnt )
 
         end
 
@@ -157,8 +172,8 @@ function SWEP:DoDamage()
 
             sound.EmitHint( SOUND_COMBAT, owner:GetShootPos(), 4000, 1, owner )
         end )
-        if IsValid( tr.Entity ) then
-            local phys = tr.Entity:GetPhysicsObject()
+        if IsValid( hitEnt ) then
+            local phys = hitEnt:GetPhysicsObject()
             local punchForce = owner:GetAimVector()
             if IsValid( phys ) then
                 punchForce = punchForce * math.Clamp( phys:GetMass() / 500, 0.25, 1 )

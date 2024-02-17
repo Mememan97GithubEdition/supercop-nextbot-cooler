@@ -13,11 +13,10 @@ SWEP.ViewModel = "models/weapons/v_357.mdl"
 SWEP.WorldModel = "models/weapons/w_357.mdl"
 SWEP.Weight = 11564674
 
-if SERVER then
-    util.AddNetworkString( "weapon_sb_supercoprevolver.muzzleflash" )
-else
+if CLIENT then
     killicon.AddFont( "weapon_sb_supercoprevolver", "HL2MPTypeDeath", ".", Color( 255, 80, 0 ) )
     language.Add( "weapon_sb_supercoprevolver", SWEP.PrintName )
+
 end
 
 SWEP.terminator_IgnoreWeaponUtility = true
@@ -48,20 +47,6 @@ function SWEP:CanSecondaryAttack()
     return false
 end
 
-local function olReliableTrace( start, endpos )
-    local tracerEffect = EffectData()
-    tracerEffect:SetStart( start )
-    tracerEffect:SetOrigin( endpos )
-    tracerEffect:SetScale( 25000 ) -- fast
-    tracerEffect:SetFlags( 0x0001 ) --whiz!
-    util.Effect( "AirboatGunHeavyTracer", tracerEffect ) -- BIG effect
-
-    util.ScreenShake( start, 10, 20, 0.1, 500, true )
-    util.ScreenShake( endpos, 10, 20, 0.1, 500, true )
-
-end
-
-
 local bulletMissSounds = {
     "weapons/fx/nearmiss/bulletLtor03.wav",
     "weapons/fx/nearmiss/bulletLtor04.wav",
@@ -73,10 +58,33 @@ local bulletMissSounds = {
     "weapons/fx/nearmiss/bulletLtor14.wav"
 }
 
-local function bulletWhiz( pos )
-    local missSound = bulletMissSounds[math.random( #bulletMissSounds )]
-    sound.Play( missSound, pos, 70, math.random( 65, 80 ), 1 )
+local function superCopWhizPly( ply, start, endPos )
+    local dist, nearestPoint = util.DistanceToLine( start, endPos, ply:GetShootPos() )
+    if dist > 200 then return end
+    for _ = 1, 2 do
+        local theSound = bulletMissSounds[math.random( 1, #bulletMissSounds )]
+        sound.Play( theSound, nearestPoint, 85, math.random( 65, 75 ), 1 )
 
+    end
+    return true
+end
+
+local function olReliableTrace( start, endPos )
+    local tracerEffect = EffectData()
+    tracerEffect:SetStart( start )
+    tracerEffect:SetOrigin( endPos )
+    tracerEffect:SetScale( 18000 ) -- fast
+    tracerEffect:SetFlags( 0x0001 ) --whiz!
+    util.Effect( "AirboatGunTracer", tracerEffect, true, true ) -- BIG effect
+
+    util.ScreenShake( start, 10, 20, 0.1, 500, true )
+    util.ScreenShake( endPos, 10, 20, 0.1, 500, true )
+
+    if not util.DistanceToLine then return end
+    for _, ply in ipairs( player.GetAll() ) do
+        if superCopWhizPly( ply, start, endPos ) then break end
+
+    end
 end
 
 -- COPIED FROM CFCm9kmonorepo
@@ -187,8 +195,6 @@ end
 
 function SWEP:BulletRicochet( iteration, attacker, bulletTrace, dmginfo, direction )
     if bulletTrace.MatType ~= MAT_METAL and math.random( 1, 100 ) < 50 then
-        bulletWhiz( bulletTrace.HitPos )
-
         if self.Tracer == 0 or self.Tracer == 1 or self.Tracer == 2 then
             local effectdata = EffectData()
             effectdata:SetOrigin( bulletTrace.HitPos )
@@ -218,7 +224,6 @@ function SWEP:BulletRicochet( iteration, attacker, bulletTrace, dmginfo, directi
         Damage = dmginfo:GetDamage() * 0.5,
         Callback = function( a, b, c )
             if not IsValid( self ) then return end
-            bulletWhiz( bulletTrace.HitPos )
             olReliableTrace( bulletTrace.HitPos + bulletTrace.HitNormal, b.HitPos )
             self:BulletCallback( iteration, a, b, c )
 
@@ -261,18 +266,19 @@ function SWEP:PrimaryAttack()
         Tracer = 0,
         Force = damageDealt * 0.15,
         Attacker = owner,
-        Callback = function( attacker, tracedata, damageInfo )
-            olReliableTrace( owner:GetShootPos(), tracedata.HitPos )
-            self:BulletCallback( 0, attacker, tracedata, damageInfo )
+        Callback = function( attacker, traceData, damageInfo )
+            local muzzleDat = self:GetAttachment( self:LookupAttachment( "muzzle" ) )
+            olReliableTrace( muzzleDat.Pos, traceData.HitPos )
+            self:BulletCallback( 0, attacker, traceData, damageInfo )
 
-            -- kill combine npcs
-            if reallyMad and IsValid( tracedata.Entity ) then
+            -- kill combine metallic npcs!
+            if reallyMad and IsValid( traceData.Entity ) and not traceData.Entity:IsPlayer() then
                 damage = DamageInfo()
                 damage:SetDamage( damageDealt )
                 damage:SetDamageType( DMG_BLAST )
                 damage:SetAttacker( owner )
                 damage:SetInflictor( self )
-                tracedata.Entity:TakeDamageInfo( damage )
+                traceData.Entity:TakeDamageInfo( damage )
 
             end
         end
@@ -315,20 +321,15 @@ function SWEP:PrimaryAttack()
 end
 
 function SWEP:DoMuzzleFlash()
-    if SERVER then
-        net.Start( "weapon_sb_supercoprevolver.muzzleflash", true )
-            net.WriteEntity( self )
-        net.SendPVS( self:GetPos() )
-    else
-        local MUZZLEFLASH_357 = 6
+    if not SERVER then return end
+    local muzzleDat = self:GetAttachment( self:LookupAttachment( "muzzle" ) )
+    local ef = EffectData()
+    ef:SetEntity( self )
+    ef:SetOrigin( muzzleDat.Pos )
+    ef:SetAngles( muzzleDat.Ang )
+    ef:SetScale( 2 )
+    util.Effect( "MuzzleEffect", ef, false )
 
-        local ef = EffectData()
-        ef:SetEntity( self )
-        ef:SetAttachment( self:LookupAttachment( "muzzle" ) )
-        ef:SetScale( 2 )
-        ef:SetFlags( MUZZLEFLASH_357 )
-        util.Effect( "MuzzleFlash", ef, false )
-    end
 end
 
 if CLIENT then
