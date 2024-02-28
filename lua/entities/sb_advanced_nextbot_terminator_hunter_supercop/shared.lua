@@ -22,7 +22,6 @@ else
 end
 
 ENT.JumpHeight = 80
-ENT.MaxJumpToPosHeight = ENT.JumpHeight
 ENT.DefaultStepHeight = 18
 ENT.StandingStepHeight = ENT.DefaultStepHeight * 1 -- used in crouch toggle in motionoverrides
 ENT.CrouchingStepHeight = ENT.DefaultStepHeight * 0.9
@@ -44,29 +43,27 @@ ENT.LookAheadOnlyWhenBlocked = true
 ENT.isTerminatorHunterChummy = false
 ENT.DoMetallicDamage = true -- metallic fx like bullet ricochet sounds
 ENT.ReallyStrong = false -- no metallic jumping sounds
-ENT.alwaysManiac = true -- fights other terminator based npcs, or other supercops
+ENT.alwaysManiac = true -- always create feuds between us and other terms/supercops, when they damage us
 ENT.HasFists = true
 ENT.IsTerminatorSupercop = true
 
-ENT.NextSpokenLine = 0
-ENT.StuffToSay = {}
+ENT.CanSpeak = true
 
 local SUPERCOP_MODEL = "models/player/police.mdl"
 ENT.ARNOLD_MODEL = SUPERCOP_MODEL
 
-ENT.PhysgunDisabled = true
+if not SERVER then return end
 
+ENT.PhysgunDisabled = true
 function ENT:CanProperty()
     return false
 
 end
-
 function ENT:CanTool()
     return false
 
 end
 
-if not SERVER then return end
 CreateConVar( "supercop_nextbot_forcedmodel", SUPERCOP_MODEL, bit.bor( FCVAR_ARCHIVE ), "Override the supercop nextbot's spawned-in model. Model needs to be rigged for player movement" )
 
 local function supercopModel()
@@ -201,20 +198,7 @@ end
 hook.Add( "ScaleNPCDamage", "supercop_nextbot_blockdamage", blockDamage )
 
 function ENT:OnTakeDamage( damageInfo )
-    local attacker = damageInfo:GetAttacker()
-    if IsValid( attacker ) and attacker ~= self and attacker:GetClass() == self:GetClass() then
-        damageInfo:ScaleDamage( 2 )
-
-    else
-        damageInfo:ScaleDamage( 0 )
-
-    end
-
-    self:MakeFeud( attacker )
-
-    if not damageInfo:IsBulletDamage() then return end
-    doRicsEnt( self )
-    hitEffect( damageInfo:GetDamagePosition(), 0.25 )
+    blockDamage( self, nil, damageInfo )
 
 end
 
@@ -355,82 +339,32 @@ local olReliableClass = "weapon_sb_supercoprevolver"
 
 ENT.TERM_FISTS = beatinStickClass
 
-function ENT:PlaySentence( sentenceIn )
-    if #self.StuffToSay >= 4 then return end -- don't add infinite stuff to say.
-    if #self.StuffToSay >= 2 and math.random( 0, 100 ) >= 50 then return end
-    table.insert( self.StuffToSay, sentenceIn )
+function ENT:OnKilledEnemyLine( enemyLost )
+    -- secret, funny pick up that can line
+    if math.random( 0, 100 ) <= 5 and math.random( 0, 100 ) <= 15 and self.NextPickupTheCanLine < CurTime() then
+        self.NextPickupTheCanLine = CurTime() + 55
+        self.NextSpokenLine = CurTime() + 4
+        timer.Simple( 1.5, function()
+            if not IsValid( self ) then return end
+            self:SpeakLine( "npc/metropolice/vo/pickupthecan3.wav" )
 
-end
+        end )
 
-ENT.SupercopOnComms = nil
-ENT.SupercopOldOnComms = nil
+        timer.Simple( 2.75, function()
+            if not IsValid( self ) then return end
+            self:SpeakLine( "npc/metropolice/vo/chuckle.wav" )
 
-function ENT:AdditionalThink()
-    if self.NextSpokenLine > CurTime() then return end
-    if #self.StuffToSay <= 0 then return end
-
-    local sentenceIn = table.remove( self.StuffToSay, 1 )
-
-    local sentence
-
-    if istable( sentenceIn ) then
-        sentence = sentenceIn[ math.random( 1, #sentenceIn ) ]
-
-    elseif isstring( sentenceIn ) then
-        sentence = sentenceIn
+        end )
+    else
+        self:PlaySentence( playerDead )
 
     end
+    -- killed other supercop, i am the the superior cop
+    if IsValid( enemyLost ) and enemyLost:GetClass() == self:GetClass() then
+        self:SetHealth( self:Health(), self:GetMaxHealth() / 2, self:GetMaxHealth() )
 
-    if not sentence then return end
-    if isstring( self.lastSpokenSentence ) and ( sentence == self.lastSpokenSentence ) then return end
-
-    self.lastSpokenSentence = sentence
-
-    EmitSentence( sentence, self:GetShootPos(), self:EntIndex(), CHAN_AUTO, 1, 80, 0, 100 )
-
-    local additional = math.random( 10, 15 ) / 10
-
-    local duration = SentenceDuration( sentence ) or 1
-    self.NextSpokenLine = CurTime() + ( duration + additional )
-
-end
-
-function ENT:SpeakLine( line )
-    self:EmitSound( line, 85, 100, 1, CHAN_AUTO )
-
-end
-
-
-hook.Add( "terminator_engagedenemywasbad", "supercop_killedenemy", function( self, enemyLost )
-    if not self.IsTerminatorSupercop then return end
-    if not IsValid( enemyLost ) then return end
-    if enemyLost:Health() <= 0 then
-        -- secret, funny pick up that can line
-        if math.random( 0, 100 ) <= 5 and math.random( 0, 100 ) <= 15 and self.NextPickupTheCanLine < CurTime() then
-            self.NextPickupTheCanLine = CurTime() + 55
-            self.NextSpokenLine = CurTime() + 4
-            timer.Simple( 1.5, function()
-                if not IsValid( self ) then return end
-                self:SpeakLine( "npc/metropolice/vo/pickupthecan3.wav" )
-
-            end )
-
-            timer.Simple( 2.75, function()
-                if not IsValid( self ) then return end
-                self:SpeakLine( "npc/metropolice/vo/chuckle.wav" )
-
-            end )
-        else
-            self:PlaySentence( playerDead )
-
-        end
-        -- killed other supercop, i am the the superior cop
-        if IsValid( enemyLost ) and enemyLost:GetClass() == self:GetClass() then
-            self:SetHealth( self:Health(), self:GetMaxHealth() / 2, self:GetMaxHealth() )
-
-        end
     end
-end )
+end
 
 -- re-override terminator's aimvector code
 function ENT:GetAimVector()
@@ -486,6 +420,7 @@ local spawnProtectionLength     = CreateConVar( "supercop_nextbot_spawnprot_cops
 local plyspawnProtectionLength  = CreateConVar( "supercop_nextbot_spawnprot_ply",       5, bit.bor( FCVAR_ARCHIVE ), "Don't shoot players until they've been alive for this long.", 0, 60 )
 
 ENT.SupercopEquipRevolverDist = 350
+ENT.DuelEnemyDist = ENT.SupercopEquipRevolverDist
 ENT.EquipDistRampup = 15
 ENT.SupercopMaxUnequipRevolverDist = 1200
 ENT.SupercopBeatingStickDist = 125
@@ -733,7 +668,7 @@ function ENT:DoTasks()
                             prevenemy:Health() > 0 and -- old enemy needs to be alive...
                             prevenemy ~= enemy and
                             data.blockSwitchingEnemies > 0 and
-                            self:GetPos():Distance( enemy:GetPos() ) > self.SupercopEquipRevolverDist -- enemy needs to be far away, otherwise just switch now
+                            self:GetPos():Distance( enemy:GetPos() ) > self.DuelEnemyDist -- enemy needs to be far away, otherwise just switch now
 
                         then
                             data.blockSwitchingEnemies = data.blockSwitchingEnemies + -1
