@@ -786,12 +786,12 @@ function ENT:DoTasks()
                         if not data.HasEnemy then
                             self:Term_PlaySentence( spottedEnemy, aliveEnem )
                             self:RunTask( "EnemyFound", newenemy )
-                            print( "new", newenemy )
+                            --print( "new", newenemy )
 
                         elseif prevenemy ~= newenemy then
                             data.blockSwitchingEnemies = math.random( 3, 5 )
                             self:RunTask( "EnemyChanged", newenemy, prevenemy )
-                            print( "swit", prevenemy, newenemy )
+                            --print( "swit", prevenemy, newenemy )
 
                         end
                         data.HasEnemy = true
@@ -804,8 +804,8 @@ function ENT:DoTasks()
                         end
                     else
                         if data.HasEnemy then
-                            print( "lost", prevenemy )
                             self:RunTask( "EnemyLost", prevenemy )
+                            --print( "lost", prevenemy )
 
                         end
                         data.HasEnemy = false
