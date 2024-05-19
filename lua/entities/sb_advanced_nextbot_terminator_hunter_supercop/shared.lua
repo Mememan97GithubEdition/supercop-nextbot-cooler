@@ -28,7 +28,6 @@ ENT.CrouchingStepHeight = ENT.DefaultStepHeight * 0.9
 ENT.StepHeight = ENT.StandingStepHeight
 ENT.PathGoalToleranceFinal = 35
 ENT.SpawnHealth = 5000000
-ENT.AimSpeed = 150
 ENT.WalkSpeed = 55
 ENT.RunSpeed = 100
 ENT.AccelerationSpeed = 1000
@@ -439,6 +438,9 @@ ENT.SupercopBlockOlReliable = 0
 ENT.SupercopBlockShooting = 0
 ENT.NextPickupTheCanLine = 0
 
+ENT.DefaultAimSpeed = 150
+ENT.MeleeAimSpeedMul = 4
+
 local CurTime = CurTime
 
 local ignorePlayers = GetConVar( "ai_ignoreplayers" )
@@ -525,7 +527,7 @@ function ENT:DoTasks()
                 local doingBeatinStick = wep:GetClass() == beatinStickClass
                 local equipRevolverDist = self.SupercopEquipRevolverDist
                 if self:IsAngry() then
-                    equipRevolverDist = equipRevolverDist * 2
+                    equipRevolverDist = equipRevolverDist * 1.5
 
                 end
                 local closeOrNotMoving = self.DistToEnemy < equipRevolverDist or not moving or self:IsReallyAngry()
@@ -539,6 +541,7 @@ function ENT:DoTasks()
                         self.PreventShooting = nil
                         self.DoHolster = nil
                         self:Give( beatinStickClass )
+                        self.AimSpeed = self.DefaultAimSpeed * self.MeleeAimSpeedMul
                         self.SupercopBlockShooting = CurTime() + 0.2
                         self:Term_PlaySentence( stunstickEquip, stunstickCondition )
                         self.SupercopBlockOlReliable = CurTime() + math.Rand( 2, 3 )
@@ -549,6 +552,7 @@ function ENT:DoTasks()
                     -- put away stunstick
                     if blockShootingTimeGood and nextWeaponPickup < CurTime() and self.SupercopBlockOlReliable < CurTime() then
                         self:Give( olReliableClass )
+                        self.AimSpeed = self.DefaultAimSpeed
                         self.SupercopBlockShooting = CurTime() + 0.4
 
                     end
@@ -660,6 +664,7 @@ function ENT:DoTasks()
                 data.playerCheckIndex = 0
                 data.blockSwitchingEnemies = 0
                 self.IsSeeEnemy = false
+                self.NothingOrBreakableBetweenEnemy = false
                 self.DistToEnemy = 0
                 self:SetEnemy( NULL )
 

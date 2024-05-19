@@ -59,11 +59,16 @@ local bulletMissSounds = {
 }
 
 local function superCopWhizPly( ply, start, endPos )
+    local nextWhiz = ply.supercop_NextBulletWhiz or 0
+    if nextWhiz > CurTime() then return end
+
     local dist, nearestPoint = util.DistanceToLine( start, endPos, ply:GetShootPos() )
     if dist > 200 then return end
+    ply.supercop_NextBulletWhiz = CurTime() + 0.1
+
     for _ = 1, 2 do
         local theSound = bulletMissSounds[math.random( 1, #bulletMissSounds )]
-        sound.Play( theSound, nearestPoint, 85, math.random( 65, 75 ), 1 )
+        sound.Play( theSound, nearestPoint, 85, math.random( 55, 75 ), 1 )
 
     end
     return true

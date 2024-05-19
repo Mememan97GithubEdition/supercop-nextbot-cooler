@@ -37,12 +37,10 @@ local function SparkEffect( SparkPos )
 
 end
 
-local function stickEffect( effectPos, normal, scale )
+function SWEP:StickEffect( effectPos, normal, scale )
     local effect = EffectData()
     effect:SetOrigin( effectPos )
-    effect:SetMagnitude( 2 )
     effect:SetScale( 1 * scale )
-    effect:SetRadius( 6 * scale )
     effect:SetNormal( normal )
     util.Effect( "StunstickImpact", effect )
 
@@ -88,6 +86,10 @@ function SWEP:DoDamage()
     if not SERVER then return end
     local owner = self:GetOwner()
     if not IsValid( owner ) then return end
+
+    util.ScreenShake( self:GetOwner():GetPos(), 10, 1, 0.4, 400 ) -- strong for nearby
+    util.ScreenShake( self:GetOwner():GetPos(), 0.5, 1, 2, 3000 ) -- weak for far away
+
     local tr = util.TraceLine( {
         start = owner:GetShootPos(),
         endpos = owner:GetShootPos() + owner:GetAimVector() * self.Range,
@@ -114,6 +116,7 @@ function SWEP:DoDamage()
 
         local dmg = DamageInfo()
         dmg:SetDamageForce( owner:GetAimVector() * 150000 )
+        dmg:SetDamagePosition( tr.HitPos )
         if reallyMad then
             dmg:SetDamageType( DMG_BLAST )
 
@@ -139,7 +142,7 @@ function SWEP:DoDamage()
 
         end
 
-        stickEffect( tr.HitPos, tr.HitNormal, 1 )
+        self:StickEffect( tr.HitPos, tr.HitNormal, 1 )
 
         util.ScreenShake( owner:GetPos(), 10, 10, 0.25, 1000, true )
 
@@ -182,7 +185,11 @@ function SWEP:DoDamage()
 
             end
         end
+    else
+        self:EmitSound( "weapons/slam/throw.wav", 100, math.random( 40, 50 ), 0.65, CHAN_STATIC )
+
     end
+
     util.ScreenShake( owner:GetPos(), 2.5, 10, 0.45, 4000, true )
 
 end
@@ -203,7 +210,7 @@ function SWEP:Equip()
     end
     if not rHandId then return end
     local pos = self:GetOwner():GetAttachment( rHandId ).Pos
-    stickEffect( pos, VectorRand(), 0.25 )
+    self:StickEffect( pos, VectorRand(), 0.25 )
 
 end
 

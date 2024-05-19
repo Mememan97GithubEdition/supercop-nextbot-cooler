@@ -121,6 +121,7 @@ local function navPatchingThink( ply )
 
     -- needs terminator nextbot addon!
     if not terminator_Extras.PosCanSee( plyPos2, currClosestPos, MASK_SOLID_BRUSHONLY ) then return end
+    if not terminator_Extras.PosCanSee( plyPos2, oldClosestPos, MASK_SOLID_BRUSHONLY ) then return end
 
     smartConnectionThink( oldArea, currArea )
     smartConnectionThink( currArea, oldArea )
@@ -151,18 +152,13 @@ local function manageNavPatching( players )
 end
 
 local doPatching = CreateConVar( "supercop_nextbot_server_navpatcher", 1, bit.bor( FCVAR_ARCHIVE ), "Do supercop navpatcher? Fixes supercop not being able to use some stairs.", 0, 1 )
-local doNavSave = CreateConVar( "supercop_nextbot_server_navsave", 1, bit.bor( FCVAR_ARCHIVE ), "If navpatcher ran, save the navmesh after supercop is removed?", 0, 1 )
 
 local _IsValid = IsValid
 
 local function finishPatching()
-    if doNavSave:GetBool() ~= true then return end
     if not donePatching then return end
-    donePatching = nil
 
-    navmesh.Save()
-
-    supercopNextbot_SupercopLog( "Supercop removed, navpatcher's " .. tostring( patchCount ) .. " new connections, have been saved..." )
+    supercopNextbot_SupercopLog( "Supercop removed, navpatcher stopping..." )
     patchCount = 0
 
 end
@@ -192,7 +188,7 @@ hook.Add( "Think", "supercop_nextbot_navpatcher", function()
     end
 end )
 
-hook.Add( "supercop_nextbot_removed", "supercop_nextbot_savenavmesh", function()
+hook.Add( "supercop_nextbot_removed", "supercop_nextbot_finishpatching", function()
     finishPatching()
 
 end )
