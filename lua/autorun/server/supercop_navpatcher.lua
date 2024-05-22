@@ -154,19 +154,13 @@ end
 local doPatching = CreateConVar( "supercop_nextbot_server_navpatcher", 1, bit.bor( FCVAR_ARCHIVE ), "Do supercop navpatcher? Fixes supercop not being able to use some stairs.", 0, 1 )
 
 local _IsValid = IsValid
-
-local function finishPatching()
-    if not donePatching then return end
-
-    supercopNextbot_SupercopLog( "Supercop removed, navpatcher stopping..." )
-    patchCount = 0
-
-end
+local donePatching = nil
 
 hook.Add( "Think", "supercop_nextbot_navpatcher", function()
     local validCop = _IsValid( supercop_nextbot_copThatExists )
     if donePatching and not validCop then
-        finishPatching()
+        donePatching = nil
+        supercopNextbot_SupercopLog( "Supercop removed, navpatcher stopping..." )
 
     elseif validCop then
         if doPatching:GetBool() ~= true then return end

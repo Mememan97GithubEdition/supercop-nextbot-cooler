@@ -44,7 +44,6 @@ ENT.ReallyHeavy = true
 ENT.DontDropPrimary = true
 
 ENT.LookAheadOnlyWhenBlocked = true
-ENT.isTerminatorHunterChummy = false
 ENT.alwaysManiac = true -- always create feuds between us and other terms/supercops, when they damage us
 ENT.HasFists = true
 ENT.IsTerminatorSupercop = true
@@ -438,7 +437,7 @@ ENT.SupercopBlockOlReliable = 0
 ENT.SupercopBlockShooting = 0
 ENT.NextPickupTheCanLine = 0
 
-ENT.DefaultAimSpeed = 150
+ENT.DefaultAimSpeed = 115
 ENT.MeleeAimSpeedMul = 4
 
 local CurTime = CurTime
@@ -476,6 +475,7 @@ function ENT:AdditionalInitialize()
     self.SupercopJustspawnedBlockBeatstick = CurTime() + ( spawnProt * 0.25 )
 
     self.LastEnemySpotTime = CurTime()
+    self.isTerminatorHunterChummy = false
 
 end
 
