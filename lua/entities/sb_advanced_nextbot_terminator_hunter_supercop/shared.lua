@@ -146,6 +146,47 @@ function ENT:MakeFootstepSound( volume, surface )
     end
 end
 
+local footTr = Vector( 0,0,-5 )
+
+-- hacky as hell but makes sure the sounds are always in sync
+function ENT:AdditionalThink()
+    if not self.loco:IsOnGround() then return end
+
+    local leftFoot = self:LookupBone( "ValveBiped.Bip01_L_Foot" )
+    local leftFootPos = self:GetBonePosition( leftFoot )
+
+    local rightFoot = self:LookupBone( "ValveBiped.Bip01_R_Foot" )
+    local rightFootPos = self:GetBonePosition( rightFoot )
+
+    local currStepping = { left = false, right = false }
+    local oldStepping = self.supercop_OldStepping or currStepping
+    local feet = { left = leftFootPos, right = rightFootPos }
+
+    for curr, foot in pairs( feet ) do
+        local currentStep = util.QuickTrace( foot, footTr, self ).Hit
+        currStepping[curr] = currentStep
+
+        if currentStep and not oldStepping[curr] then
+            self.NeedsAStep = true
+
+        end
+    end
+
+    self.supercop_OldStepping = currStepping
+
+end
+
+-- yuck!
+function ENT:GetFootstepSoundTime()
+    if self.NeedsAStep then
+        self.NeedsAStep = nil
+        return 0
+
+    end
+    return math.huge
+
+end
+
 function ENT:DoHardcodedRelations()
     self:SetClassRelationship( "player", D_HT,1 )
     self:SetClassRelationship( "npc_lambdaplayer", D_HT,1 )
@@ -179,8 +220,14 @@ local function doRicsEnt( shotEnt )
 end
 local function blockDamage( damaged, _, damageInfo )
     if not damaged.IsTerminatorSupercop then return end
-    local attacker = damageInfo:GetAttacker()
+
     damaged:Anger( damageInfo:GetDamage() * 0.1 )
+    local increased = damaged.SupercopEquipRevolverDist + ( damaged.EquipDistRampup / 4 )
+    increased = math.Clamp( increased, 0, damaged.SupercopMaxUnequipRevolverDist + -250 )
+    damaged.SupercopEquipRevolverDist = increased
+
+    local attacker = damageInfo:GetAttacker()
+
     if IsValid( attacker ) and attacker ~= damaged and attacker:GetClass() == damaged:GetClass() then
         damageInfo:ScaleDamage( 2 )
 
@@ -428,17 +475,19 @@ end
 local spawnProtectionLength     = CreateConVar( "supercop_nextbot_spawnprot_copspawn",  10, bit.bor( FCVAR_ARCHIVE ), "Bot won't shoot until it's been alive for this long", 0, 60 )
 local plyspawnProtectionLength  = CreateConVar( "supercop_nextbot_spawnprot_ply",       5, bit.bor( FCVAR_ARCHIVE ), "Don't shoot players until they've been alive for this long.", 0, 60 )
 
-ENT.SupercopEquipRevolverDist = 350
+ENT.SupercopEquipRevolverDist = 150
 ENT.DuelEnemyDist = ENT.SupercopEquipRevolverDist
 ENT.EquipDistRampup = 15
 ENT.SupercopMaxUnequipRevolverDist = 1200
-ENT.SupercopBeatingStickDist = 125
+ENT.SupercopBeatingStickDist = 100
 ENT.SupercopBlockOlReliable = 0
 ENT.SupercopBlockShooting = 0
 ENT.NextPickupTheCanLine = 0
 
 ENT.DefaultAimSpeed = 115
 ENT.MeleeAimSpeedMul = 4
+
+ENT.ShouldJog = false
 
 local CurTime = CurTime
 
@@ -477,15 +526,43 @@ function ENT:AdditionalInitialize()
     self.LastEnemySpotTime = CurTime()
     self.isTerminatorHunterChummy = false
 
+    if engine.ActiveGamemode() == "terrortown" then
+        timer.Simple( 0, function()
+            if not IsValid( self ) then return end
+            local button = ents.Create( "ttt_traitor_button" )
+            if not IsValid( button ) then return end
+            button:SetPos( self:WorldSpaceCenter() )
+            button.RawDescription = "Make supercop jog ( Costs 2 Credits )"
+            button.RawDelay = -1
+            button:SetParent( self )
+            button:Spawn()
+
+            button.IsSupercopJogButton = true
+            button.my_supercop = self
+
+        end )
+    end
+end
+
+if engine.ActiveGamemode() == "terrortown" then
+    hook.Add( "TTTCanUseTraitorButton", "supercop_jogbutton_canpress", function( button, presser )
+        if not button.IsSupercopJogButton then return end
+
+        if presser:GetCredits() >= 2 then return true end
+
+        return false, "You don't have enough credits to activate this."
+
+    end )
+    hook.Add( "TTTTraitorButtonActivated", "supercop_jogbutton_functionality", function( button, presser )
+        if not button.IsSupercopJogButton then return end
+
+        presser:SetCredits( presser:GetCredits() - 2 )
+        button.my_supercop.ShouldJog = true
+
+    end )
 end
 
 local supercopJog = CreateConVar( "supercop_nextbot_jog", 0, bit.bor( FCVAR_ARCHIVE ), "Should supercop jog?.", 0, 1 )
-
-function ENT:GetFootstepSoundTime()
-    local vel2d = self.loco:GetVelocity():Length2D()
-    return 1000 + -vel2d * 6.5
-
-end
 
 local function aliveEnem( me )
     local enem = me:GetEnemy()
@@ -683,6 +760,14 @@ function ENT:DoTasks()
                             local allPlayers = player.GetAll()
                             local pickedPlayer = allPlayers[data.playerCheckIndex]
 
+                            local pickedIsReachable
+
+                            if IsValid( pickedPlayer ) then
+                                local result = terminator_Extras.getNearestPosOnNav( pickedPlayer:GetPos() )
+                                pickedIsReachable = self:areaIsReachable( result.area )
+
+                            end
+
                             local didForceEnemy
                             local tooLongSinceLastEnemy = ( self.LastEnemySpotTime + 5 ) < CurTime()
 
@@ -693,7 +778,7 @@ function ENT:DoTasks()
                                 pickedPlayer:Health() > 0 and
                                 (
                                     ( self:ShouldBeEnemy( pickedPlayer ) and terminator_Extras.PosCanSee( self:GetShootPos(), self:EntShootPos( pickedPlayer ) ) ) or
-                                    tooLongSinceLastEnemy
+                                    ( tooLongSinceLastEnemy and pickedIsReachable )
                                 )
                             then
                                 didForceEnemy = true
@@ -724,7 +809,7 @@ function ENT:DoTasks()
                             IsValid( prevenemy ) and
                             prevenemy:Health() > 0 and -- old enemy needs to be alive...
                             prevenemy ~= enemy and
-                            data.blockSwitchingEnemies > 0 and
+                            ( data.blockSwitchingEnemies > 0 and self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy ) and
                             self:GetPos():Distance( enemy:GetPos() ) > self.DuelEnemyDist -- enemy needs to be far away, otherwise just switch now
 
                         then
@@ -794,7 +879,7 @@ function ENT:DoTasks()
                             --print( "new", newenemy )
 
                         elseif prevenemy ~= newenemy then
-                            data.blockSwitchingEnemies = math.random( 3, 5 )
+                            data.blockSwitchingEnemies = math.random( 5, 10 )
                             self:RunTask( "EnemyChanged", newenemy, prevenemy )
                             --print( "swit", prevenemy, newenemy )
 
@@ -855,7 +940,6 @@ function ENT:DoTasks()
                 local enemy = self:GetEnemy()
                 local validEnemy = IsValid( enemy ) and enemy:Health() > 0
                 local enemyPos = self:GetLastEnemyPosition( enemy ) or self.EnemyLastPos or nil
-                data.wasEnemy = validEnemy or data.wasEnemy
 
                 local noPath = enemyPos and not self:primaryPathIsValid()
                 local currentPathIsStale = enemyPos and self:primaryPathIsValid() and self:CanDoNewPath( enemyPos ) and not self.terminator_HandlingLadder
@@ -876,7 +960,7 @@ function ENT:DoTasks()
 
                 end
 
-                local controlResult = self:ControlPath2( not self.IsSeeEnemy )
+                self:ControlPath2( not self.IsSeeEnemy )
 
                 local pathLeng = 0
                 local pathIsCurrent
@@ -888,7 +972,7 @@ function ENT:DoTasks()
                     end
                 end
 
-                local circuitiousPath = self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy and ( pathLeng > ( self.DistToEnemy * 6 ) ) and ( pathLeng > 2000 ) and pathIsCurrent
+                local circuitiousPath = self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy and ( pathLeng > ( self.DistToEnemy * 8 ) ) and ( pathLeng > 3000 ) and pathIsCurrent
 
                 -- not worth pathing to new enemy
                 if validEnemy then
@@ -916,20 +1000,15 @@ function ENT:DoTasks()
                 elseif not self:primaryPathIsValid() then
                     self:TaskComplete( "movement_followenemy" )
                     self:StartTask2( "movement_maintainlos", nil, "no enemy!" )
-                    if data.wasEnemy then
-                        data.wasEnemy = nil
-                        self:Term_PlaySentence( "METROPOLICE_LOST_LONG" .. math.random( 0, 5 ), aliveEnem )
-
-                    end
                 end
             end,
             StartControlByPlayer = function()
             end,
             ShouldRun = function( self, data )
-                return supercopJog:GetBool()
+                return self.ShouldJog or supercopJog:GetBool()
             end,
             ShouldWalk = function( self, data )
-                return not supercopJog:GetBool()
+                return not ( self.ShouldJog or supercopJog:GetBool() )
             end,
         },
         ["movement_maintainlos"] = {
@@ -1017,11 +1096,16 @@ function ENT:DoTasks()
 
                     -- find areas that have a line of sight to my enemy
                     local scoreFunction = function( scoreData, area1, area2 )
+                        if not scoreData.self:areaIsReachable( area2 ) then return 0 end
+
                         local area2Center = area2:GetCenter()
 
-                        local score = math.Round( math.Rand( 0.90, 1.10 ), 3 )
+                        local enemsShoot = scoreData.enemysShootPos
+                        local score = 1
+                        if enemsShoot then
+                            score = math.Round( area2Center:Distance( enemsShoot ) - maxDist / maxDist, 3 )
 
-                        if not scoreData.self:areaIsReachable( area2 ) then return 0 end
+                        end
 
                         local heightChange = area1:ComputeAdjacentConnectionHeightChange( area2 )
                         local wander = scoreData.wander
@@ -1048,14 +1132,14 @@ function ENT:DoTasks()
                         local firstWasGood
 
                         if score >= 0.8 and not wander then
-                            local firstClearOrBreakable, _, firstJustClear = self:ClearOrBreakable( area2Center + scoreData.areaCenterOffset, scoreData.enemysShootPos )
+                            local firstClearOrBreakable, _, firstJustClear = self:ClearOrBreakable( area2Center + scoreData.areaCenterOffset, enemsShoot )
 
                             if firstJustClear then
                                 firstWasGood = true
                                 score = 1000
 
                             elseif firstClearOrBreakable then
-                                score = maxDist - area2Center:Distance( scoreData.enemysShootPos ) / 100
+                                score = maxDist - area2Center:Distance( enemsShoot ) / 100
 
                             end
                         end
@@ -1067,21 +1151,21 @@ function ENT:DoTasks()
 
                             elseif secondClearOrBreakable then
                                 score = 2000
-                                debugoverlay.Text( area2Center, tostring( score ), 5, false )
+                                --debugoverlay.Text( area2Center, tostring( score ), 5, false )
                             end
                         end
 
                         if not wander then
                             -- prefer high ground
                             if area2Center.z > scoreData.startingShootPosZ then
-                                score = score * 4
+                                score = score * 1.5
 
                             -- don't go down!
                             elseif area2Center.z < ( scoreData.startingShootPosZ + -300 ) then
-                                score = math.Clamp( score * 0.5, 0, 1000 )
+                                score = math.Clamp( score * 0.5, 0, 10000 )
 
                             end
-                            if area2Center:DistToSqr( scoreData.enemysShootPos ) > scoreData.goingFurtherAwayCutoff then
+                            if area2Center:DistToSqr( enemsShoot ) > scoreData.goingFurtherAwayCutoff then
                                 score = score * 0.8
 
                             end
@@ -1118,6 +1202,9 @@ function ENT:DoTasks()
 
                     if not self:primaryPathIsValid() then return end
                     data.nextPath = CurTime() + math.Rand( 0.5, 1 )
+
+                elseif data.endToEnemyBlockedCount > 4 and seeAndCanShoot then
+                    self:InvalidatePath( "break path, i can see em!" )
 
                 end
 
@@ -1180,10 +1267,10 @@ function ENT:DoTasks()
             StartControlByPlayer = function()
             end,
             ShouldRun = function( self, data )
-                return supercopJog:GetBool()
+                return self.ShouldJog or supercopJog:GetBool()
             end,
             ShouldWalk = function( self, data )
-                return not supercopJog:GetBool()
+                return not ( self.ShouldJog or supercopJog:GetBool() )
             end,
         },
     }

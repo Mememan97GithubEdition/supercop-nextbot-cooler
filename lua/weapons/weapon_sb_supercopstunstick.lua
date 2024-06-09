@@ -132,7 +132,7 @@ function SWEP:DoDamage()
             dmg:SetDamageType( DMG_SHOCK )
             hitEnt:GodDisable()
 
-            dmg:SetDamage( math.random( 1, 10 ) )
+            dmg:SetDamage( hitEnt:GetMaxHealth() * math.Rand( 0.01, 0.1 ) )
             hitEnt:TakeDamageInfo( dmg )
             hitEnt:GodEnable()
 
