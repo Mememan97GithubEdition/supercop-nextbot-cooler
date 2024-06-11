@@ -144,7 +144,7 @@ local invadedMessages = {
     { "Supercop has invaded.", "He just transferred from cleaveland..." },
     { "Supercop has invaded.", "He just transferred from new york..." },
     { "Supercop has invaded.", "He just transferred from detroit..." },
-    { "Supercop has invaded.", "He just transferred from miami..." },
+    { "Supercop has invaded.", "He just transferred from miami... oklahoma..." },
     { "Supercop has invaded.", "He just transferred from LA..." },
     { "Supercop has invaded.", "He just transferred from san francisco..." },
     { "Supercop has invaded.", "He just transferred from vancouver..." },

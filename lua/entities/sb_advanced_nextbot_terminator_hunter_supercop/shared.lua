@@ -28,8 +28,8 @@ ENT.CrouchingStepHeight = ENT.DefaultStepHeight * 0.9
 ENT.StepHeight = ENT.StandingStepHeight
 ENT.PathGoalToleranceFinal = 35
 ENT.SpawnHealth = 5000000
-ENT.WalkSpeed = 55
-ENT.RunSpeed = 100
+ENT.WalkSpeed = 50
+ENT.RunSpeed = 85
 ENT.AccelerationSpeed = 1000
 ENT.DeathDropHeight = 100000
 ENT.InformRadius = 0
@@ -114,9 +114,13 @@ function ENT:MakeFootstepSound( volume, surface )
     if surface or ( tr and tr.Hit ) then
         local copStep = foot and "NPC_MetroPolice.RunFootstepRight" or "NPC_MetroPolice.RunFootstepLeft"
 
-        self:EmitSound( copStep )
+        local filterAllPlayers = RecipientFilter()
+        filterAllPlayers:AddAllPlayers()
+        self:EmitSound( copStep, 88, math.random( 80, 90 ), 1, CHAN_STATIC, bit.bor( SND_CHANGE_PITCH, SND_CHANGE_VOL ) )
 
     end
+
+    util.ScreenShake( self:GetPos(), 1, 20, 0.5, 1500 )
 
     if not surface then return end
 
@@ -146,33 +150,33 @@ function ENT:MakeFootstepSound( volume, surface )
     end
 end
 
-local footTr = Vector( 0,0,-5 )
+local dotVec = Vector( 0,0,1 )
 
 -- hacky as hell but makes sure the sounds are always in sync
 function ENT:AdditionalThink()
     if not self.loco:IsOnGround() then return end
 
     local leftFoot = self:LookupBone( "ValveBiped.Bip01_L_Foot" )
-    local leftFootPos = self:GetBonePosition( leftFoot )
+    local leftFootPos, leftFootAng = self:GetBonePosition( leftFoot )
 
     local rightFoot = self:LookupBone( "ValveBiped.Bip01_R_Foot" )
-    local rightFootPos = self:GetBonePosition( rightFoot )
+    local rightFootPos, rightFootAng = self:GetBonePosition( rightFoot )
 
     local currStepping = { left = false, right = false }
-    local oldStepping = self.supercop_OldStepping or currStepping
-    local feet = { left = leftFootPos, right = rightFootPos }
+    local oldStepping = self.custom_OldStepping or currStepping
+    local feet = { left = { pos = leftFootPos, ang = leftFootAng }, right = { pos = rightFootPos, ang = rightFootAng } }
 
     for curr, foot in pairs( feet ) do
-        local currentStep = util.QuickTrace( foot, footTr, self ).Hit
-        currStepping[curr] = currentStep
+        local dot = foot.ang:Forward():Dot( dotVec )
+        currStepping[curr] = dot < -0.8
 
-        if currentStep and not oldStepping[curr] then
+        if currStepping[curr] and not oldStepping[curr] then
             self.NeedsAStep = true
 
         end
     end
 
-    self.supercop_OldStepping = currStepping
+    self.custom_OldStepping = currStepping
 
 end
 
@@ -484,8 +488,8 @@ ENT.SupercopBlockOlReliable = 0
 ENT.SupercopBlockShooting = 0
 ENT.NextPickupTheCanLine = 0
 
-ENT.DefaultAimSpeed = 115
-ENT.MeleeAimSpeedMul = 4
+ENT.DefaultAimSpeed = 80
+ENT.MeleeAimSpeedMul = 6
 
 ENT.ShouldJog = false
 
@@ -512,6 +516,8 @@ hook.Add( "PlayerSpawn", "supercop_plyspawnprotection", function( spawned )
 
 end )
 
+local supercopJog = CreateConVar( "supercop_nextbot_jog", 0, bit.bor( FCVAR_ARCHIVE ), "Should supercop jog?.", 0, 1 )
+
 function ENT:AdditionalInitialize()
     self:SetModel( supercopModel() )
 
@@ -527,6 +533,7 @@ function ENT:AdditionalInitialize()
     self.isTerminatorHunterChummy = false
 
     if engine.ActiveGamemode() == "terrortown" then
+        if supercopJog:GetBool() then return end
         timer.Simple( 0, function()
             if not IsValid( self ) then return end
             local button = ents.Create( "ttt_traitor_button" )
@@ -534,6 +541,7 @@ function ENT:AdditionalInitialize()
             button:SetPos( self:WorldSpaceCenter() )
             button.RawDescription = "Make supercop jog ( Costs 2 Credits )"
             button.RawDelay = -1
+            button:SetUsableRange( 512 )
             button:SetParent( self )
             button:Spawn()
 
@@ -561,8 +569,6 @@ if engine.ActiveGamemode() == "terrortown" then
 
     end )
 end
-
-local supercopJog = CreateConVar( "supercop_nextbot_jog", 0, bit.bor( FCVAR_ARCHIVE ), "Should supercop jog?.", 0, 1 )
 
 local function aliveEnem( me )
     local enem = me:GetEnemy()
@@ -629,17 +635,21 @@ function ENT:DoTasks()
                     -- put away stunstick
                     if blockShootingTimeGood and nextWeaponPickup < CurTime() and self.SupercopBlockOlReliable < CurTime() then
                         self:Give( olReliableClass )
+                        -- fix aimspeed
                         self.AimSpeed = self.DefaultAimSpeed
                         self.SupercopBlockShooting = CurTime() + 0.4
 
                     end
                 -- bring out gun
-                elseif self.DoHolster and closeOrNotMoving then
+                elseif self.DoHolster and closeOrNotMoving and self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy then
                     self.DoHolster = nil
                     self:Term_PlaySentence( weaponWarn, revolverCondition )
 
                     self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, CurTime() + 0.75 )
                     self.PreventShooting = nil
+
+                    -- make sure supercop's aimspeed is fixed!
+                    self.AimSpeed = self.DefaultAimSpeed
 
                     -- as ply tests bot, increase the dist that we pull out the gun at.
                     local increased = self.SupercopEquipRevolverDist + self.EquipDistRampup
@@ -693,7 +703,7 @@ function ENT:DoTasks()
                         end
                     else
                         -- dont shoot if bot just spawned, or enemy just spawned
-                        local protected = ( self.SupercopJustspawnedBlockShooting > CurTime() ) or enemyIsSpawnProtected
+                        local protected = ( self.SupercopJustspawnedBlockShooting > CurTime() ) or enemyIsSpawnProtected or not self.IsSeeEnemy
                         local shootableVolatile = self:getShootableVolatile( enemy )
 
                         -- attack barrel next to ply!
