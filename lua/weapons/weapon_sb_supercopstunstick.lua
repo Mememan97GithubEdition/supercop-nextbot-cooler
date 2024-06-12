@@ -69,7 +69,7 @@ function SWEP:PrimaryAttack()
 
     local owner = self:GetOwner()
 
-    owner:EmitSound( "Weapon_StunStick.Swing" )
+    owner:EmitSound( "Weapon_StunStick.Swing", 100, math.random( 80, 90 ), 1, CHAN_STATIC, bit.bor( SND_CHANGE_PITCH, SND_CHANGE_VOL ) )
 
     timer.Simple( 0.15, function()
         if not IsValid( self ) then return end
@@ -128,6 +128,7 @@ function SWEP:DoDamage()
         dmg:SetAttacker( owner )
         dmg:SetInflictor( self )
 
+        -- bypass godmode...
         if hitEnt.HasGodMode and hitEnt:HasGodMode() then
             dmg:SetDamageType( DMG_SHOCK )
             hitEnt:GodDisable()
@@ -142,9 +143,17 @@ function SWEP:DoDamage()
 
         end
 
+        -- lazy pngbot
+        if hitEnt.LastPathingInfraction and hitEnt.TauntSounds then
+            hitEnt:OnKilled( dmg )
+            SafeRemoveEntity( hitEnt )
+
+        end
+
         self:StickEffect( tr.HitPos, tr.HitNormal, 1 )
 
-        util.ScreenShake( owner:GetPos(), 10, 10, 0.25, 1000, true )
+        util.ScreenShake( owner:GetPos(), 80, 20, 0.5, 1000, true )
+        util.ScreenShake( owner:GetPos(), 5, 20, 1, 3000, true )
 
         if hitEnt:GetInternalVariable( "m_bLocked" ) == true then
             hitEnt:Fire( "unlock", "", .01 )
@@ -162,6 +171,7 @@ function SWEP:DoDamage()
         end
 
         owner.stunStickSound = CreateSound( owner, "Weapon_StunStick.Melee_Hit", filterAllPlayers )
+        owner.stunStickSound:SetSoundLevel( 95 )
         owner.stunStickSound:PlayEx( 1, 88 )
 
         timer.Simple( 0.05, function()
@@ -185,8 +195,12 @@ function SWEP:DoDamage()
 
             end
         end
+        if hitEnt:IsPlayer() or hitEnt:IsNPC() or hitEnt:IsNextBot() then
+            hitEnt:EmitSound( "npc/vort/foot_hit.wav", 75, math.random( 45, 65 ), 1, CHAN_STATIC )
+
+        end
     else
-        self:EmitSound( "weapons/slam/throw.wav", 100, math.random( 40, 50 ), 0.65, CHAN_STATIC )
+        owner:EmitSound( "weapons/slam/throw.wav", 100, math.random( 40, 50 ), 0.65, CHAN_STATIC )
 
     end
 
