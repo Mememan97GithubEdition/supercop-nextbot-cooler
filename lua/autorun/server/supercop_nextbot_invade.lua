@@ -101,7 +101,7 @@ function supercopNextbot_CopInvade()
     if supercopNextbot_CopCanInvade() ~= true then return end
 
     if not whereToSpawn then return end
-    local cop = ents.Create( "sb_advanced_nextbot_terminator_hunter_supercop" )
+    local cop = ents.Create( "terminator_nextbot_supercop" )
     if not IsValid( cop ) then
         supercopNextbot_SupercopLog( "Supercop Failed to spawn." )
         return

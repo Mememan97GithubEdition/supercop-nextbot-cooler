@@ -2,18 +2,18 @@
 
 AddCSLuaFile()
 
-ENT.Base = "sb_advanced_nextbot_terminator_hunter"
+ENT.Base = "terminator_nextbot"
 DEFINE_BASECLASS( ENT.Base )
 ENT.PrintName = "The Supercop"
 ENT.Spawnable = false
-list.Set( "NPC", "sb_advanced_nextbot_terminator_hunter_supercop", {
+list.Set( "NPC", "terminator_nextbot_supercop", {
     Name = "The Supercop",
-    Class = "sb_advanced_nextbot_terminator_hunter_supercop",
-    Category = "SB Advanced Nextbots",
+    Class = "terminator_nextbot_supercop",
+    Category = "Terminator Nextbot",
 } )
 
 if CLIENT then
-    language.Add( "sb_advanced_nextbot_terminator_hunter_supercop", ENT.PrintName )
+    language.Add( "terminator_nextbot_supercop", ENT.PrintName )
     return
 
 else
@@ -194,11 +194,8 @@ end
 function ENT:DoHardcodedRelations()
     self:SetClassRelationship( "player", D_HT,1 )
     self:SetClassRelationship( "npc_lambdaplayer", D_HT,1 )
-    self:SetClassRelationship( "sb_advanced_nextbot_terminator_hunter", D_HT, 1 )
-    self:SetClassRelationship( "sb_advanced_nextbot_terminator_hunter_slower", D_HT, 1 )
-    self:SetClassRelationship( "sb_advanced_nextbot_soldier_follower", D_HT )
-    self:SetClassRelationship( "sb_advanced_nextbot_soldier_friendly", D_HT )
-    self:SetClassRelationship( "sb_advanced_nextbot_soldier_hostile", D_HT )
+    self:SetClassRelationship( "terminator_nextbot", D_HT, 1 )
+    self:SetClassRelationship( "terminator_nextbot_slower", D_HT, 1 )
 
 end
 
@@ -391,8 +388,8 @@ function ENT:GetDesiredEnemyRelationship( ent )
     return disp,priority,theirdisp
 end
 
-local beatinStickClass = "weapon_sb_supercopstunstick"
-local olReliableClass = "weapon_sb_supercoprevolver"
+local beatinStickClass = "weapon_term_supercopstunstick"
+local olReliableClass = "weapon_term_supercoprevolver"
 
 ENT.TERM_FISTS = beatinStickClass
 
@@ -457,10 +454,10 @@ function ENT:IsReallyAngry()
             reallyAngryTime = reallyAngryTime + 60
 
         elseif self.isUnstucking then
-            reallyAngryTime = reallyAngryTime + 5
+            reallyAngryTime = reallyAngryTime + 2
 
         elseif self:inSeriousDanger() then
-            reallyAngryTime = reallyAngryTime + 5
+            reallyAngryTime = reallyAngryTime + 2
 
         elseif self:EnemyIsUnkillable() then
             reallyAngryTime = reallyAngryTime + 10
@@ -521,7 +518,7 @@ local supercopJog = CreateConVar( "supercop_nextbot_jog", 0, bit.bor( FCVAR_ARCH
 function ENT:AdditionalInitialize()
     self:SetModel( supercopModel() )
 
-    self:Give( "weapon_sb_supercoprevolver" )
+    self:Give( "weapon_term_supercoprevolver" )
 
     self:SetBloodColor( DONT_BLEED )
 
@@ -609,11 +606,14 @@ function ENT:DoTasks()
                 local moving = self:primaryPathIsValid()
                 local doingBeatinStick = wep:GetClass() == beatinStickClass
                 local equipRevolverDist = self.SupercopEquipRevolverDist
-                if self:IsAngry() then
+                if self:IsReallyAngry() then
+                    equipRevolverDist = equipRevolverDist * 2.5
+
+                elseif self:IsAngry() then
                     equipRevolverDist = equipRevolverDist * 1.5
 
                 end
-                local closeOrNotMoving = self.DistToEnemy < equipRevolverDist or not moving or self:IsReallyAngry()
+                local closeOrNotMoving = self.DistToEnemy < equipRevolverDist or not moving
                 local blockShootingTimeGood = self.SupercopBlockShooting < CurTime()
                 -- give fists logic time to work, see isfists in terminator weapons override file
                 local nextWeaponPickup = self.terminator_NextWeaponPickup or 0
@@ -679,8 +679,9 @@ function ENT:DoTasks()
                     self.OldDoHolster = self.DoHolster
 
                 end
+                local readyToShoot = self.SupercopBlockShooting < CurTime()
                 local tooLongSinceSeen = math.abs( self.LastEnemySpotTime - CurTime() ) > 4
-                local blockShooting = not blockShootingTimeGood or self.DoHolster or self.PreventShooting or not self.IsSeeEnemy or self.SupercopBlockShooting > CurTime() or tooLongSinceSeen
+                local blockShooting = not blockShootingTimeGood or self.DoHolster or self.PreventShooting or not self.IsSeeEnemy or not readyToShoot or tooLongSinceSeen
                 -- by default, aim at the last spot we saw enemy
                 local toAimAt = self.LastEnemyShootPos
                 -- otherwise, if we see enemy, aim right at them
@@ -697,7 +698,7 @@ function ENT:DoTasks()
                     if doingBeatinStick then
                         self:shootAt( toAimAt, true )
                         -- beating stick gets a shorter cooldown after bot spawned, and ignores per-player spawnprotection
-                        if ( self.DistToEnemy < wep.Range * 1.25 ) and self.SupercopJustspawnedBlockBeatstick < CurTime() then
+                        if ( self.DistToEnemy < wep.Range * 1.25 ) and self.SupercopJustspawnedBlockBeatstick < CurTime() and readyToShoot then
                             self:WeaponPrimaryAttack()
 
                         end
@@ -838,6 +839,7 @@ function ENT:DoTasks()
                             self.NothingOrBreakableBetweenEnemy = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
 
                             if self.IsSeeEnemy and not self.WasSeeEnemy then
+                                self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, CurTime() + 0.15 )
                                 hook.Run( "terminator_spotenemy", self, enemy )
 
                             elseif not self.IsSeeEnemy and self.WasSeeEnemy then

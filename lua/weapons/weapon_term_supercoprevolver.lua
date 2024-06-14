@@ -14,8 +14,8 @@ SWEP.WorldModel = "models/weapons/w_357.mdl"
 SWEP.Weight = 11564674
 
 if CLIENT then
-    killicon.AddFont( "weapon_sb_supercoprevolver", "HL2MPTypeDeath", ".", Color( 255, 80, 0 ) )
-    language.Add( "weapon_sb_supercoprevolver", SWEP.PrintName )
+    killicon.AddFont( "weapon_term_supercoprevolver", "HL2MPTypeDeath", ".", Color( 255, 80, 0 ) )
+    language.Add( "weapon_term_supercoprevolver", SWEP.PrintName )
 
 end
 
@@ -283,6 +283,7 @@ function SWEP:PrimaryAttack()
                 damage:SetDamageType( DMG_BLAST )
                 damage:SetAttacker( owner )
                 damage:SetInflictor( self )
+                damage:SetDamagePosition( traceData.HitPos )
                 traceData.Entity:TakeDamageInfo( damage )
 
             end
@@ -338,7 +339,7 @@ function SWEP:DoMuzzleFlash()
 end
 
 if CLIENT then
-    net.Receive( "weapon_sb_supercoprevolver.muzzleflash", function( len )
+    net.Receive( "weapon_term_supercoprevolver.muzzleflash", function( len )
         local ent = net.ReadEntity()
 
         if IsValid( ent ) and ent.DoMuzzleFlash then

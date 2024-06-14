@@ -11,8 +11,8 @@ SWEP.WorldModel = "models/weapons/w_stunbaton.mdl"
 SWEP.Weight = 3214214
 
 if CLIENT then
-    killicon.AddFont( "weapon_sb_supercopstunstick", "HL2MPTypeDeath", "!", Color( 255, 80, 0 ) )
-    language.Add( "weapon_sb_supercopstunstick", SWEP.PrintName )
+    killicon.AddFont( "weapon_term_supercopstunstick", "HL2MPTypeDeath", "!", Color( 255, 80, 0 ) )
+    language.Add( "weapon_term_supercopstunstick", SWEP.PrintName )
 end
 
 SWEP.Melee = true
