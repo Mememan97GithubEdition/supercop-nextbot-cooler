@@ -681,17 +681,18 @@ function ENT:DoTasks()
                 end
                 local readyToShoot = self.SupercopBlockShooting < CurTime()
                 local tooLongSinceSeen = math.abs( self.LastEnemySpotTime - CurTime() ) > 4
-                local blockShooting = not blockShootingTimeGood or self.DoHolster or self.PreventShooting or not self.IsSeeEnemy or not readyToShoot or tooLongSinceSeen
+                local canSeeThem = self.IsSeeEnemy
+                local blockShooting = not blockShootingTimeGood or self.DoHolster or self.PreventShooting or not readyToShoot or tooLongSinceSeen
                 -- by default, aim at the last spot we saw enemy
                 local toAimAt = self.LastEnemyShootPos
                 -- otherwise, if we see enemy, aim right at them
                 -- basically don't always aim at entshootpos  
-                if self.IsSeeEnemy then
+                if canSeeThem then
                     toAimAt = self:EntShootPos( enemy )
 
                 end
 
-                if IsValid( enemy ) and not blockShooting then
+                if IsValid( enemy ) and not blockShooting and canSeeThem then
                     local enemySpawnProtEnds = enemy.Supercop_SpawnProtection or 0
                     local enemyIsSpawnProtected = enemySpawnProtEnds > CurTime()
 
@@ -812,6 +813,8 @@ function ENT:DoTasks()
                         end
 
                         local enemy = self:FindPriorityEnemy()
+                        local canSeePriority = self:CanSeePosition( enemy )
+                        local nothingOrBreakableBetweenPriority = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
 
                         -- conditional friction for switching enemies.
                         -- fixes bot jumping between two enemies that get obscured as it paths, and doing a little dance
@@ -820,12 +823,14 @@ function ENT:DoTasks()
                             IsValid( prevenemy ) and
                             prevenemy:Health() > 0 and -- old enemy needs to be alive...
                             prevenemy ~= enemy and
-                            ( data.blockSwitchingEnemies > 0 and self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy ) and
+                            ( data.blockSwitchingEnemies > 0 and canSeePriority and nothingOrBreakableBetweenPriority ) and
                             self:GetPos():Distance( enemy:GetPos() ) > self.DuelEnemyDist -- enemy needs to be far away, otherwise just switch now
 
                         then
                             data.blockSwitchingEnemies = data.blockSwitchingEnemies + -1
                             enemy = prevenemy
+                            canSeePriority = self:CanSeePosition( enemy )
+                            nothingOrBreakableBetweenPriority = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
 
 
                         elseif IsValid( enemy ) then
@@ -835,8 +840,8 @@ function ENT:DoTasks()
 
                             self.LastEnemySpotTime = CurTime()
                             self.DistToEnemy = self:GetPos():Distance( enemyPos )
-                            self.IsSeeEnemy = self:CanSeePosition( enemy )
-                            self.NothingOrBreakableBetweenEnemy = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
+                            self.IsSeeEnemy = canSeePriority
+                            self.NothingOrBreakableBetweenEnemy = nothingOrBreakableBetweenPriority
 
                             if self.IsSeeEnemy and not self.WasSeeEnemy then
                                 self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, CurTime() + 0.15 )
@@ -1115,11 +1120,11 @@ function ENT:DoTasks()
                         local enemsShoot = scoreData.enemysShootPos
                         local score = 1
                         if enemsShoot then
-                            score = math.Round( area2Center:Distance( enemsShoot ) - maxDist / maxDist, 3 )
+                            score = math.Round( ( maxDist - area2Center:Distance( enemsShoot ) ) / maxDist, 3 )
 
                         end
 
-                        local heightChange = area1:ComputeAdjacentConnectionHeightChange( area2 )
+                        local heightChange = area1:ComputeGroundHeightChange( area2 )
                         local wander = scoreData.wander
 
                         if heightChange > scoreData.self.JumpHeight then
@@ -1157,13 +1162,14 @@ function ENT:DoTasks()
                         end
 
                         if firstWasGood then
-                            local secondClearOrBreakable, _, secondJustClear = self:ClearOrBreakable( area2Center + scoreData.areaCenterOffset, scoreData.enemysCrouchShootPos )
-                            if secondJustClear then
+                            local potentialSnipingSpot = area2Center + scoreData.areaCenterOffset
+                            local secondClearOrBreakable, _, secondJustClear = self:ClearOrBreakable( potentialSnipingSpot, scoreData.enemysCrouchShootPos )
+                            if secondJustClear and terminator_Extras.PosCanSeeComplex( potentialSnipingSpot, scoreData.enemysCrouchShootPos ) then
                                 score = math.huge -- perfect spot to shoot from
 
                             elseif secondClearOrBreakable then
                                 score = 2000
-                                --debugoverlay.Text( area2Center, tostring( score ), 5, false )
+                                debugoverlay.Text( area2Center, tostring( score ), 5, false )
                             end
                         end
 
@@ -1196,7 +1202,7 @@ function ENT:DoTasks()
                             end
                         end
 
-                        --debugoverlay.Text( area2Center, tostring( score ), 5, false )
+                        debugoverlay.Text( area2Center, tostring( score ), 5, false )
 
                         return score
 
@@ -1207,15 +1213,17 @@ function ENT:DoTasks()
 
                     local result = terminator_Extras.getNearestPosOnNav( posWithSightline )
                     local posOnNav = result.pos
-                    local a, b = self:SetupPathShell( posOnNav )
+                    self:SetupPathShell( posOnNav )
 
                     data.nextPath = CurTime() + math.Rand( 0.25, 0.5 )
                     --debugoverlay.Cross( posOnNav, 100, 1, color_white, true )
 
                     if not self:primaryPathIsValid() then return end
+                    data.endToEnemyBlockedCount = 0
                     data.nextPath = CurTime() + math.Rand( 0.5, 1 )
 
                 elseif data.endToEnemyBlockedCount > 4 and seeAndCanShoot then
+                    -- walked into los, but path end will take us out of los
                     self:InvalidatePath( "break path, i can see em!" )
 
                 end

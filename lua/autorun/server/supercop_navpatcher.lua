@@ -15,25 +15,14 @@ local function connectionDistance( currArea, otherArea )
 
 end
 
--- see if the z of start area
-local function arePlanar( startArea, toCheckAreas, criteria )
-    for _, currArea in ipairs( toCheckAreas ) do
-        if startArea:IsConnected( currArea ) then
-            local height = math.abs( startArea:ComputeAdjacentConnectionHeightChange( currArea ) )
-            if height < criteria then return true end
+local function distanceEdge( currArea, otherArea )
+    local currCenter = currArea:GetCenter()
 
-        end
+    local nearestInitial    = otherArea:GetClosestPointOnArea( currCenter )
+    local nearestFinal      = currArea:GetClosestPointOnArea( nearestInitial )
+    local distTo            = nearestInitial:DistToSqr( nearestFinal )
+    return distTo
 
-        local startAreaClosest = startArea:GetClosestPointOnArea( currArea:GetCenter() )
-        local currAreaClosest = currArea:GetClosestPointOnArea( startAreaClosest )
-
-        height = currAreaClosest.z - startAreaClosest.z
-        height = math.abs( height )
-
-        if height < criteria then return true end
-
-    end
-    return false
 end
 
 local function goodDist( distTo )
@@ -56,25 +45,51 @@ local function goodDist( distTo )
 
 end
 
+local upOffset = Vector( 0, 0, 25 )
+
 -- do checks to see if connection from old area to curr area is a good idea
-local function smartConnectionThink( oldArea, currArea, ignorePlanar )
+local function smartConnectionThink( oldArea, currArea )
     if oldArea:IsConnected( currArea ) then return end
 
     -- get dist sqr and old area's closest point to curr area
-    local distTo, _, currAreasClosest = connectionDistance( oldArea, currArea )
+    local distTo = connectionDistance( oldArea, currArea )
 
     if distTo > 55^2 and not goodDist( distTo ) then return end
 
-    local pos1 = oldArea:GetClosestPointOnArea( currAreasClosest )
-    local pos2 = currArea:GetClosestPointOnArea( pos1 )
-    local criteria = math.abs( pos1.z - pos2.z ) + 50
-    --debugoverlay.Cross( pos1, 50, 10, color_white, true )
-    --debugoverlay.Cross( pos2, 100, 10, Color( 255,0,0 ), true )
+    -- check if there's a simple-ish way from oldArea to currArea
+    -- dont create a new connection if there is
+    local returnAreas = { [currArea] = true }
+    local incomingAreas = currArea:GetIncomingConnections()
+    if #incomingAreas > 0 then
+        for _, area in ipairs( incomingAreas ) do
+            returnAreas[area] = true
 
-    local navDirTakenByConnection = oldArea:ComputeDirection( pos2 )
-    local areasInNavDir = oldArea:GetAdjacentAreasAtSide( navDirTakenByConnection )
+        end
+    end
 
-    if not ignorePlanar and #areasInNavDir > 0 and arePlanar( currArea, areasInNavDir, criteria ) == true then return end
+    local currsNearest = currArea:GetClosestPointOnArea( oldArea:GetCenter() ) + upOffset
+
+    local doneAlready = {}
+    for _, firstLayer in ipairs( oldArea:GetAdjacentAreas() ) do
+        if returnAreas[firstLayer] then return end
+        doneAlready[firstLayer] = true
+        if firstLayer:IsVisible( currsNearest ) and distanceEdge( firstLayer, currArea ) < distTo then return end
+
+        for _, secondLayer in ipairs( firstLayer:GetAdjacentAreas() ) do
+            if doneAlready[secondLayer] then continue end
+            doneAlready[secondLayer] = true
+            if returnAreas[secondLayer] then return end
+            if secondLayer:IsVisible( currsNearest ) and distanceEdge( secondLayer, currArea ) < distTo then return end
+
+            for _, thirdLayer in ipairs( secondLayer:GetAdjacentAreas() ) do
+                if doneAlready[thirdLayer] then continue end
+                doneAlready[thirdLayer] = true
+                if returnAreas[thirdLayer] then return end
+                if thirdLayer:IsVisible( currsNearest ) and distanceEdge( thirdLayer, currArea ) < distTo then return end
+
+            end
+        end
+    end
 
     oldArea:ConnectTo( currArea )
     patchCount = patchCount + 1
@@ -97,7 +112,7 @@ local function navPatchingThink( ply )
     local plyPos = ply:GetPos()
 
     local currArea = navmesh.GetNearestNavArea( plyPos, true, navCheckDist, false, true )
-    if not currArea or not currArea.IsValid or not currArea:IsValid() then return end
+    if not IsValid( currArea ) then return end
     local distToArea = plyPos:DistToSqr( currArea:GetClosestPointOnArea( plyPos ) )
 
     -- cant be sure of areas further away than this!
@@ -106,22 +121,30 @@ local function navPatchingThink( ply )
     local oldArea = ply.oldPatchingArea
     ply.oldPatchingArea = currArea
 
-    if not oldArea or not oldArea.IsValid or not oldArea:IsValid() then return end
+    if not IsValid( oldArea ) then return end
     if currArea == oldArea then return end
+    if oldArea:IsConnected( currArea ) and currArea:IsConnected( oldArea ) then return end
 
-    local currClosestPos = currArea:GetClosestPointOnArea( plyPos )
-    local oldClosestPos = oldArea:GetClosestPointOnArea( plyPos )
-    local zOverride = math.max( plyPos.z, oldClosestPos.z + 10, currClosestPos.z + 10 ) + 10 -- just check walls
+    local plysCenter = ply:WorldSpaceCenter()
 
-    local plyPos2 = Vector( plyPos.x, plyPos.y, zOverride ) -- yuck
-    currClosestPos.z = zOverride
+    local currClosestPos = currArea:GetClosestPointOnArea( plysCenter )
+    local oldClosestPos = oldArea:GetClosestPointOnArea( plysCenter )
+    local zOverride = math.max( plysCenter.z, oldClosestPos.z + 10, currClosestPos.z + 10 ) + 10 -- just check walls
 
-    --debugoverlay.Line( plyPos2, currClosestPos, 5, Color(255,255,255), true )
-    --print( plyPos2.z, currClosestPos.z, plyPos.z )
+    local plysCenter2 = Vector( plysCenter.x, plysCenter.y, zOverride ) -- yuck
+
+    local currClosestPosInAir = Vector( currClosestPos.x, currClosestPos.y, zOverride )
+    local oldClosestPosInAir = Vector( oldClosestPos.x, oldClosestPos.y, zOverride )
 
     -- needs terminator nextbot addon!
-    if not terminator_Extras.PosCanSee( plyPos2, currClosestPos, MASK_SOLID_BRUSHONLY ) then return end
-    if not terminator_Extras.PosCanSee( plyPos2, oldClosestPos, MASK_SOLID_BRUSHONLY ) then return end
+    -- debugoverlay.Line( currClosestPos, currClosestPosInAir, 5, color_white, true )
+    -- debugoverlay.Line( currClosestPosInAir, plysCenter2, 5, color_white, true )
+    -- debugoverlay.Line( plysCenter2, oldClosestPosInAir, 5, color_white, true )
+    -- debugoverlay.Line( oldClosestPos, oldClosestPosInAir, 5, color_white, true )
+    if not terminator_Extras.PosCanSee( currClosestPos, currClosestPosInAir, MASK_SOLID_BRUSHONLY ) then return end
+    if not terminator_Extras.PosCanSee( currClosestPosInAir, plysCenter2, MASK_SOLID_BRUSHONLY ) then return end
+    if not terminator_Extras.PosCanSee( plysCenter2, oldClosestPosInAir, MASK_SOLID_BRUSHONLY ) then return end
+    if not terminator_Extras.PosCanSee( oldClosestPos, oldClosestPosInAir, MASK_SOLID_BRUSHONLY ) then return end
 
     smartConnectionThink( oldArea, currArea )
     smartConnectionThink( currArea, oldArea )
