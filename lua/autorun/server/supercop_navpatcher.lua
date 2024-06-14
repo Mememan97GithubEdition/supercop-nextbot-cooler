@@ -137,10 +137,10 @@ local function navPatchingThink( ply )
     local oldClosestPosInAir = Vector( oldClosestPos.x, oldClosestPos.y, zOverride )
 
     -- needs terminator nextbot addon!
-    -- debugoverlay.Line( currClosestPos, currClosestPosInAir, 5, color_white, true )
-    -- debugoverlay.Line( currClosestPosInAir, plysCenter2, 5, color_white, true )
-    -- debugoverlay.Line( plysCenter2, oldClosestPosInAir, 5, color_white, true )
-    -- debugoverlay.Line( oldClosestPos, oldClosestPosInAir, 5, color_white, true )
+    --debugoverlay.Line( currClosestPos, currClosestPosInAir, 5, color_white, true )
+    --debugoverlay.Line( currClosestPosInAir, plysCenter2, 5, color_white, true )
+    --debugoverlay.Line( plysCenter2, oldClosestPosInAir, 5, color_white, true )
+    --debugoverlay.Line( oldClosestPos, oldClosestPosInAir, 5, color_white, true )
     if not terminator_Extras.PosCanSee( currClosestPos, currClosestPosInAir, MASK_SOLID_BRUSHONLY ) then return end
     if not terminator_Extras.PosCanSee( currClosestPosInAir, plysCenter2, MASK_SOLID_BRUSHONLY ) then return end
     if not terminator_Extras.PosCanSee( plysCenter2, oldClosestPosInAir, MASK_SOLID_BRUSHONLY ) then return end

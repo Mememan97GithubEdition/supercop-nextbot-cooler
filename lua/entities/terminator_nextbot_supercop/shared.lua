@@ -1169,7 +1169,7 @@ function ENT:DoTasks()
 
                             elseif secondClearOrBreakable then
                                 score = 2000
-                                debugoverlay.Text( area2Center, tostring( score ), 5, false )
+                                --debugoverlay.Text( area2Center, tostring( score ), 5, false )
                             end
                         end
 
@@ -1202,7 +1202,7 @@ function ENT:DoTasks()
                             end
                         end
 
-                        debugoverlay.Text( area2Center, tostring( score ), 5, false )
+                        --debugoverlay.Text( area2Center, tostring( score ), 5, false )
 
                         return score
 
