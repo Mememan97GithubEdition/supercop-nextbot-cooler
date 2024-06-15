@@ -35,7 +35,8 @@ ENT.DeathDropHeight = 100000
 ENT.InformRadius = 0
 
 -- default is 500, setting this lower means supercop will ignore low priority enemies and focus on players, unless they're blocking his path
-ENT.CloseEnemyDistance = 65
+ENT.CloseEnemyDistance = 0
+ENT.SupercopOnDamagedEnemyDistance = 65
 
 ENT.DoMetallicDamage = true -- metallic fx like bullet ricochet sounds
 ENT.MetallicMoveSounds = false
@@ -110,13 +111,15 @@ function ENT:MakeFootstepSound( volume, surface )
 
         surface = tr.SurfaceProps
     end
+    local pos = self:GetPos()
 
     if surface or ( tr and tr.Hit ) then
         local copStep = foot and "NPC_MetroPolice.RunFootstepRight" or "NPC_MetroPolice.RunFootstepLeft"
 
-        local filterAllPlayers = RecipientFilter()
-        filterAllPlayers:AddAllPlayers()
-        self:EmitSound( copStep, 88, math.random( 80, 90 ), 1, CHAN_STATIC, bit.bor( SND_CHANGE_PITCH, SND_CHANGE_VOL ) )
+        local filter = RecipientFilter()
+        filter:AddPAS( pos )
+
+        self:EmitSound( copStep, 88, math.random( 80, 90 ), 1, CHAN_STATIC, bit.bor( SND_CHANGE_PITCH, SND_CHANGE_VOL ), 0, filter )
 
     end
 
@@ -130,7 +133,6 @@ function ENT:MakeFootstepSound( volume, surface )
     local sound = foot and surfaceDat.stepRightSound or surfaceDat.stepLeftSound
 
     if sound then
-        local pos = self:GetPos()
 
         local filter = RecipientFilter()
         filter:AddPAS( pos )
@@ -238,6 +240,15 @@ local function blockDamage( damaged, _, damageInfo )
     end
 
     damaged:MakeFeud( attacker )
+
+    damaged.CloseEnemyDistance = damaged.SupercopOnDamagedEnemyDistance
+    local timerName = "supercop_fixcloseenemydist" .. damaged:GetCreationID()
+    timer.Remove( timerName )
+    timer.Create( timerName, 5, 1, function()
+        if not IsValid( damaged ) then return end
+        damaged.CloseEnemyDistance = 0
+
+    end )
 
     if not damageInfo:IsBulletDamage() then return end
     doRicsEnt( damaged )
@@ -348,7 +359,7 @@ local stunstickEquip = {
 function ENT:GetDesiredEnemyRelationship( ent )
     local disp = D_HT
     local theirdisp = D_HT
-    local priority = 1000
+    local priority = 1
 
     if ent:GetClass() == self:GetClass() then
         disp = D_LI
@@ -357,7 +368,8 @@ function ENT:GetDesiredEnemyRelationship( ent )
     end
 
     if ent:IsPlayer() then
-        priority = 1
+        priority = 1000
+
     elseif ent:IsNPC() or ent:IsNextBot() then
         local obj = ent:GetPhysicsObject()
         -- invalid npc or something, happens alot with engine ents
@@ -377,10 +389,10 @@ function ENT:GetDesiredEnemyRelationship( ent )
         local memory = memories[key]
 
         if memory == MEMORY_WEAPONIZEDNPC then
-            priority = priority + -300
+            priority = priority + 300
 
         else
-            priority = priority + -100
+            priority = priority + 100
 
         end
     end
@@ -519,6 +531,8 @@ function ENT:AdditionalInitialize()
     self:SetModel( supercopModel() )
 
     self:Give( "weapon_term_supercoprevolver" )
+    self:SetCollisionGroup( COLLISION_GROUP_PLAYER )
+    self:SetSolidMask( MASK_PLAYERSOLID )
 
     self:SetBloodColor( DONT_BLEED )
 
@@ -526,6 +540,8 @@ function ENT:AdditionalInitialize()
     self.SupercopJustspawnedBlockShooting = CurTime() + spawnProt
     self.SupercopJustspawnedBlockBeatstick = CurTime() + ( spawnProt * 0.25 )
 
+    self.AimSpeed = self.DefaultAimSpeed
+    self.NextForcedEnemy = CurTime()
     self.LastEnemySpotTime = CurTime()
     self.isTerminatorHunterChummy = false
 
@@ -598,7 +614,7 @@ function ENT:DoTasks()
                 local wep = self:GetActiveLuaWeapon() or self:GetActiveWeapon()
                 -- edge case
                 if not IsValid( wep ) then
-                    self:shootAt( self.LastEnemyShootPos )
+                    self:shootAt( self.LastEnemyShootPos, true )
                     return
 
                 end
@@ -781,7 +797,7 @@ function ENT:DoTasks()
                             end
 
                             local didForceEnemy
-                            local tooLongSinceLastEnemy = ( self.LastEnemySpotTime + 5 ) < CurTime()
+                            local tooLongSinceLastPlayer = self.NextForcedEnemy < CurTime()
 
                             -- check if alive etc
                             -- MESSY but it's better than it going off to the right
@@ -790,7 +806,7 @@ function ENT:DoTasks()
                                 pickedPlayer:Health() > 0 and
                                 (
                                     ( self:ShouldBeEnemy( pickedPlayer ) and terminator_Extras.PosCanSee( self:GetShootPos(), self:EntShootPos( pickedPlayer ) ) ) or
-                                    ( tooLongSinceLastEnemy and pickedIsReachable )
+                                    ( tooLongSinceLastPlayer and pickedIsReachable )
                                 )
                             then
                                 didForceEnemy = true
@@ -798,10 +814,15 @@ function ENT:DoTasks()
 
                             end
 
-                            if didForceEnemy and tooLongSinceLastEnemy then
+                            if didForceEnemy and tooLongSinceLastPlayer then
                                 self.OverwatchReportedEnemy = true
-                                self:Term_PlaySentence( "METROPOLICE_FLANK6" )
+                                self.NextForcedEnemy = CurTime() + 5
+                                local nextFlankLine = data.nextFlankLine or 0
+                                if nextFlankLine < CurTime() then
+                                    data.nextFlankLine = CurTime() + 8
+                                    self:Term_PlaySentence( "METROPOLICE_FLANK6" )
 
+                                end
                             end
 
                             local new = data.playerCheckIndex + 1
@@ -813,24 +834,30 @@ function ENT:DoTasks()
                         end
 
                         local enemy = self:FindPriorityEnemy()
-                        local canSeePriority = self:CanSeePosition( enemy )
-                        local nothingOrBreakableBetweenPriority = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
+                        local canSeePrevious
+                        local nothingOrBreakableBetweenPrevious
+                        local frictionApplying
+
+                        local prevEnemyValid = IsValid( prevenemy ) and ( prevenemy.Health and prevenemy:Health() > 0 ) and prevenemy ~= enemy
+                        if prevEnemyValid then
+                            canSeePrevious = self:CanSeePosition( enemy )
+                            nothingOrBreakableBetweenPrevious = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
+
+                            frictionApplying = prevenemy:IsPlayer() or ( canSeePrevious and nothingOrBreakableBetweenPrevious )
+
+                        end
 
                         -- conditional friction for switching enemies.
                         -- fixes bot jumping between two enemies that get obscured as it paths, and doing a little dance
                         if
                             IsValid( enemy ) and
-                            IsValid( prevenemy ) and
-                            prevenemy:Health() > 0 and -- old enemy needs to be alive...
-                            prevenemy ~= enemy and
-                            ( data.blockSwitchingEnemies > 0 and canSeePriority and nothingOrBreakableBetweenPriority ) and
-                            self:GetPos():Distance( enemy:GetPos() ) > self.DuelEnemyDist -- enemy needs to be far away, otherwise just switch now
+                            prevEnemyValid and
+                            ( data.blockSwitchingEnemies > 0 and frictionApplying ) and
+                            self:GetPos():Distance( enemy:GetPos() ) > self.CloseEnemyDistance -- enemy needs to be far away, otherwise just switch now
 
                         then
                             data.blockSwitchingEnemies = data.blockSwitchingEnemies + -1
                             enemy = prevenemy
-                            canSeePriority = self:CanSeePosition( enemy )
-                            nothingOrBreakableBetweenPriority = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
 
 
                         elseif IsValid( enemy ) then
@@ -838,6 +865,13 @@ function ENT:DoTasks()
                             local enemyPos = enemy:GetPos()
                             if not self.EnemyLastPos then self.EnemyLastPos = enemyPos end
 
+                            local canSeePriority = self:CanSeePosition( enemy )
+                            local nothingOrBreakableBetweenPriority = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
+
+                            if enemy:IsPlayer() then
+                                self.NextForcedEnemy = CurTime()
+
+                            end
                             self.LastEnemySpotTime = CurTime()
                             self.DistToEnemy = self:GetPos():Distance( enemyPos )
                             self.IsSeeEnemy = canSeePriority
@@ -896,7 +930,6 @@ function ENT:DoTasks()
                             --print( "new", newenemy )
 
                         elseif prevenemy ~= newenemy then
-                            data.blockSwitchingEnemies = math.random( 5, 10 )
                             self:RunTask( "EnemyChanged", newenemy, prevenemy )
                             --print( "swit", prevenemy, newenemy )
 
@@ -904,6 +937,13 @@ function ENT:DoTasks()
                         data.HasEnemy = true
 
                         if self:CanSeePosition( newenemy ) then
+                            if newenemy:IsPlayer() then
+                                data.blockSwitchingEnemies = 8
+
+                            else
+                                data.blockSwitchingEnemies = math.random( 1, 2 )
+
+                            end
                             self.LastEnemyShootPos = self:EntShootPos( newenemy )
                             self.AimAtEnemyShootPosTime = CurTime() + 10
                             self:UpdateEnemyMemory( newenemy, newenemy:GetPos() )
@@ -1034,7 +1074,7 @@ function ENT:DoTasks()
                 data.nextPath = 0
                 data.tryAndApproach = {}
                 if data.Unreachable and IsValid( enemy ) then
-                    data.tryAndApproach[enemy:GetCreationID()] = CurTime() + 11
+                    data.tryAndApproach[enemy:GetCreationID()] = CurTime() + 5
 
                 end
                 data.nextTauntLine = CurTime() + 8
@@ -1062,7 +1102,7 @@ function ENT:DoTasks()
 
                 if goodEnemy then
                     local time = data.tryAndApproach[enemy:GetCreationID()]
-                    canTryToApproach = not time or time < CurTime()
+                    canTryToApproach = ( not time or time < CurTime() ) or data.wander
 
                 end
 
@@ -1259,10 +1299,13 @@ function ENT:DoTasks()
                     local navResult = terminator_Extras.getNearestPosOnNav( enemy:GetPos() )
                     local reachable = self:areaIsReachable( navResult.area )
                      -- allow an escape here on wander because wander can't loop easily.
-                    if reachable or data.wander then
+                    if reachable then
                         self:TaskComplete( "movement_maintainlos" )
                         self:StartTask2( "movement_followenemy", nil, "enemy seems to be reachable, gonna try pathing to them." )
                         return
+
+                    else
+                        self.NextForcedEnemy = 0
 
                     end
                 -- we can see enemy and our path is valid, nuke our path and just open fire

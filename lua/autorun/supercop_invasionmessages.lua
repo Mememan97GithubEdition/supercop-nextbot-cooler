@@ -58,6 +58,8 @@ local invadedMessages = {
 
     -- server rules/admin meta jokes
     { "Supercop has invaded.", "Should've read each of the 42 rules..." },
+    { "Supercop has invaded.", "According to rule 38, subrule 12, you fucked up..." },
+    { "Supercop has invaded.", "According to rule 21, subrule 5, you're a criminal..." },
     { "Supercop's invading,", "Better beg the admins to remove him..." },
     { "Supercop's invading, And", "he doesn't read the rules..." },
     { "Supercop's invading,", "He's a professional rule lawyer..." },
@@ -80,13 +82,15 @@ local invadedMessages = {
     { "Supercop has invaded.", "His secret weapon? Nature..." },
     { "Supercop has invaded.", "His secret weapon? Jesus..." },
     { "Supercop has invaded.", "His secret weapon? Buddha..." },
+    { "Supercop has invaded.", "His secret weapon? Justice..." },
+    { "Supercop has invaded.", "His secret weapon? Allah..." },
 
     -- referencing citizen quotes
     { "Supercop has invaded.", "He's got a good feeling about this..." },
     { "Supercop has invaded.", "Shouldn't have dreamed about cheese..." },
     { "Supercop has invaded.", "He's talkin to you..." },
     { "Supercop has invaded. And", "about time, too..." },
-    { "Supercop has invaded.", "He just wants to sell insurance..." },
+    { "Supercop has invaded.", "He just wanted to sell insurance..." },
     { "Supercop has invaded.", "He's gonna make a stalker out of you..." },
     { "Supercop has invaded.", "It's just one of those days..." },
     { "Supercop has invaded.", "This is bad..." },

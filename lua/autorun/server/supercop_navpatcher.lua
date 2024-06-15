@@ -10,7 +10,7 @@ local function connectionDistance( currArea, otherArea )
     local nearestInitial = otherArea:GetClosestPointOnArea( currCenter )
     local nearestFinal   = currArea:GetClosestPointOnArea( nearestInitial )
     nearestFinal.z = nearestInitial.z
-    local distTo   = nearestInitial:DistToSqr( nearestFinal )
+    local distTo   = nearestInitial:Distance( nearestFinal )
     return distTo, nearestFinal, nearestInitial
 
 end
@@ -20,7 +20,7 @@ local function distanceEdge( currArea, otherArea )
 
     local nearestInitial    = otherArea:GetClosestPointOnArea( currCenter )
     local nearestFinal      = currArea:GetClosestPointOnArea( nearestInitial )
-    local distTo            = nearestInitial:DistToSqr( nearestFinal )
+    local distTo            = nearestInitial:Distance( nearestFinal )
     return distTo
 
 end
@@ -33,8 +33,6 @@ local function goodDist( distTo )
     while distQuota < 400 do
         local min = distQuota + minCheck
         local max = distQuota + maxCheck
-        min = min^2
-        max = max^2
 
         if distTo > min and distTo < max then return true end
         distQuota = distQuota + 25
@@ -51,10 +49,10 @@ local upOffset = Vector( 0, 0, 25 )
 local function smartConnectionThink( oldArea, currArea )
     if oldArea:IsConnected( currArea ) then return end
 
-    -- get dist sqr and old area's closest point to curr area
+    -- get dist flat, no z component
     local distTo = connectionDistance( oldArea, currArea )
 
-    if distTo > 55^2 and not goodDist( distTo ) then return end
+    if distTo > 55 and not goodDist( distTo ) then return end
 
     -- check if there's a simple-ish way from oldArea to currArea
     -- dont create a new connection if there is
@@ -68,24 +66,25 @@ local function smartConnectionThink( oldArea, currArea )
     end
 
     local currsNearest = currArea:GetClosestPointOnArea( oldArea:GetCenter() ) + upOffset
+    local tolerance = distTo + -5
 
     local doneAlready = {}
     for _, firstLayer in ipairs( oldArea:GetAdjacentAreas() ) do
         if returnAreas[firstLayer] then return end
         doneAlready[firstLayer] = true
-        if firstLayer:IsVisible( currsNearest ) and distanceEdge( firstLayer, currArea ) < distTo then return end
+        if firstLayer:IsVisible( currsNearest ) and distanceEdge( firstLayer, currArea ) < tolerance then print("1") return end
 
         for _, secondLayer in ipairs( firstLayer:GetAdjacentAreas() ) do
             if doneAlready[secondLayer] then continue end
             doneAlready[secondLayer] = true
             if returnAreas[secondLayer] then return end
-            if secondLayer:IsVisible( currsNearest ) and distanceEdge( secondLayer, currArea ) < distTo then return end
+            if secondLayer:IsVisible( currsNearest ) and distanceEdge( secondLayer, currArea ) < tolerance then print("2") return end
 
             for _, thirdLayer in ipairs( secondLayer:GetAdjacentAreas() ) do
                 if doneAlready[thirdLayer] then continue end
                 doneAlready[thirdLayer] = true
                 if returnAreas[thirdLayer] then return end
-                if thirdLayer:IsVisible( currsNearest ) and distanceEdge( thirdLayer, currArea ) < distTo then return end
+                if thirdLayer:IsVisible( currsNearest ) and distanceEdge( thirdLayer, currArea ) < tolerance then print("3") return end
 
             end
         end
