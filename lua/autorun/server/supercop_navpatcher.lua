@@ -72,19 +72,19 @@ local function smartConnectionThink( oldArea, currArea )
     for _, firstLayer in ipairs( oldArea:GetAdjacentAreas() ) do
         if returnAreas[firstLayer] then return end
         doneAlready[firstLayer] = true
-        if firstLayer:IsVisible( currsNearest ) and distanceEdge( firstLayer, currArea ) < tolerance then print("1") return end
+        if firstLayer:IsVisible( currsNearest ) and distanceEdge( firstLayer, currArea ) < tolerance then return end
 
         for _, secondLayer in ipairs( firstLayer:GetAdjacentAreas() ) do
             if doneAlready[secondLayer] then continue end
             doneAlready[secondLayer] = true
             if returnAreas[secondLayer] then return end
-            if secondLayer:IsVisible( currsNearest ) and distanceEdge( secondLayer, currArea ) < tolerance then print("2") return end
+            if secondLayer:IsVisible( currsNearest ) and distanceEdge( secondLayer, currArea ) < tolerance then return end
 
             for _, thirdLayer in ipairs( secondLayer:GetAdjacentAreas() ) do
                 if doneAlready[thirdLayer] then continue end
                 doneAlready[thirdLayer] = true
                 if returnAreas[thirdLayer] then return end
-                if thirdLayer:IsVisible( currsNearest ) and distanceEdge( thirdLayer, currArea ) < tolerance then print("3") return end
+                if thirdLayer:IsVisible( currsNearest ) and distanceEdge( thirdLayer, currArea ) < tolerance then return end
 
             end
         end
@@ -128,18 +128,18 @@ local function navPatchingThink( ply )
 
     local currClosestPos = currArea:GetClosestPointOnArea( plysCenter )
     local oldClosestPos = oldArea:GetClosestPointOnArea( plysCenter )
-    local zOverride = math.max( plysCenter.z, oldClosestPos.z + 10, currClosestPos.z + 10 ) + 10 -- just check walls
+    local highestHeight = math.max( plysCenter.z, oldClosestPos.z + 25, currClosestPos.z + 25 )
 
-    local plysCenter2 = Vector( plysCenter.x, plysCenter.y, zOverride ) -- yuck
-
-    local currClosestPosInAir = Vector( currClosestPos.x, currClosestPos.y, zOverride )
-    local oldClosestPosInAir = Vector( oldClosestPos.x, oldClosestPos.y, zOverride )
+    local plysCenter2 = Vector( plysCenter.x, plysCenter.y, highestHeight ) -- yuck
+    local currClosestPosInAir = Vector( currClosestPos.x, currClosestPos.y, highestHeight )
+    local oldClosestPosInAir = Vector( oldClosestPos.x, oldClosestPos.y, highestHeight )
 
     -- needs terminator nextbot addon!
     --debugoverlay.Line( currClosestPos, currClosestPosInAir, 5, color_white, true )
     --debugoverlay.Line( currClosestPosInAir, plysCenter2, 5, color_white, true )
     --debugoverlay.Line( plysCenter2, oldClosestPosInAir, 5, color_white, true )
     --debugoverlay.Line( oldClosestPos, oldClosestPosInAir, 5, color_white, true )
+    -- goes from last area, to the highest height, then back down to the current area
     if not terminator_Extras.PosCanSee( currClosestPos, currClosestPosInAir, MASK_SOLID_BRUSHONLY ) then return end
     if not terminator_Extras.PosCanSee( currClosestPosInAir, plysCenter2, MASK_SOLID_BRUSHONLY ) then return end
     if not terminator_Extras.PosCanSee( plysCenter2, oldClosestPosInAir, MASK_SOLID_BRUSHONLY ) then return end

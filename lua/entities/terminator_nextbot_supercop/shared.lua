@@ -117,7 +117,7 @@ function ENT:MakeFootstepSound( volume, surface )
         local copStep = foot and "NPC_MetroPolice.RunFootstepRight" or "NPC_MetroPolice.RunFootstepLeft"
 
         local filter = RecipientFilter()
-        filter:AddPAS( pos )
+        filter:AddAllPlayers()
 
         self:EmitSound( copStep, 88, math.random( 80, 90 ), 1, CHAN_STATIC, bit.bor( SND_CHANGE_PITCH, SND_CHANGE_VOL ), 0, filter )
 
@@ -819,7 +819,7 @@ function ENT:DoTasks()
                                 self.NextForcedEnemy = CurTime() + 5
                                 local nextFlankLine = data.nextFlankLine or 0
                                 if nextFlankLine < CurTime() then
-                                    data.nextFlankLine = CurTime() + 8
+                                    data.nextFlankLine = CurTime() + 20
                                     self:Term_PlaySentence( "METROPOLICE_FLANK6" )
 
                                 end
