@@ -66,11 +66,16 @@ local function superCopWhizPly( ply, start, endPos )
     if dist > 200 then return end
     ply.supercop_NextBulletWhiz = CurTime() + 0.1
 
+    local pitchAdd = dist / 5
+
     for _ = 1, 2 do
         local theSound = bulletMissSounds[math.random( 1, #bulletMissSounds )]
-        sound.Play( theSound, nearestPoint, 85, math.random( 55, 75 ), 1 )
+        sound.Play( theSound, nearestPoint, 85, math.random( 40, 50 ) + pitchAdd, 1 )
 
     end
+
+    util.ScreenShake( nearestPoint, 100, 20, 0.5, 1000, nil )
+
     return true
 end
 
@@ -82,14 +87,15 @@ local function olReliableTrace( start, endPos )
     tracerEffect:SetFlags( 0x0001 ) --whiz!
     util.Effect( "AirboatGunTracer", tracerEffect, true, true ) -- BIG effect
 
-    util.ScreenShake( start, 10, 20, 0.1, 500, true )
-    util.ScreenShake( endPos, 10, 20, 0.1, 500, true )
-
     if not util.DistanceToLine then return end
     for _, ply in ipairs( player.GetAll() ) do
-        if superCopWhizPly( ply, start, endPos ) then break end
+        if superCopWhizPly( ply, start, endPos ) then return end
 
     end
+
+    util.ScreenShake( start, 20, 20, 0.1, 500, true )
+    util.ScreenShake( endPos, 20, 20, 0.1, 500, true )
+
 end
 
 -- COPIED FROM CFCm9kmonorepo
@@ -192,6 +198,7 @@ function SWEP:BulletPenetrate( iteration, attacker, bulletTrace, dmginfo, direct
     }
 
     timer.Simple( 0, function()
+        if not IsValid( attacker ) then return end
         attacker:FireBullets( bullet )
     end )
 
@@ -276,16 +283,45 @@ function SWEP:PrimaryAttack()
             olReliableTrace( muzzleDat.Pos, traceData.HitPos )
             self:BulletCallback( 0, attacker, traceData, damageInfo )
 
+            local hitSomething = IsValid( traceData.Entity )
+            local hitEnt = traceData.Entity
+            local oldCount = traceData.Entity.supercopHitCounts or 0
+
             -- kill combine metallic npcs!
-            if reallyMad and IsValid( traceData.Entity ) and not traceData.Entity:IsPlayer() then
+            if reallyMad and hitSomething and not hitEnt:IsPlayer() then
                 damage = DamageInfo()
                 damage:SetDamage( damageDealt )
                 damage:SetDamageType( DMG_BLAST )
                 damage:SetAttacker( owner )
                 damage:SetInflictor( self )
                 damage:SetDamagePosition( traceData.HitPos )
-                traceData.Entity:TakeDamageInfo( damage )
+                hitEnt:TakeDamageInfo( damage )
 
+                util.BlastDamage( self, owner, traceData.HitPos, 150, damageDealt )
+                -- strider hack, they take severely reduced damage from non-players
+                if hitEnt.Health and hitEnt:Health() > 1 then
+                    hitEnt:SetHealth( 1 )
+
+                end
+                if oldCount >= 8 then
+                    local fallbackSplode = ents.Create( "env_explosion" )
+                    fallbackSplode:SetPos( traceData.HitPos )
+                    fallbackSplode:SetKeyValue( "iMagnitude", damageDealt )
+                    fallbackSplode:SetKeyValue( "iRadiusOverride", 300 )
+                    fallbackSplode:Fire( "Explode" )
+
+                end
+            end
+            if hitSomething and owner.GetEnemy and IsValid( owner:GetEnemy() ) and hitEnt == owner:GetEnemy() then
+                if oldCount >= 3 then owner:ReallyAnger( 15 ) end
+
+                hitEnt.supercopHitCounts = oldCount + 1
+
+                if not owner:GetEnemy():IsPlayer() and oldCount > 25 then
+                    owner.termIgnoreOverrides = owner.termIgnoreOverrides or {}
+                    owner.termIgnoreOverrides[hitEnt] = true
+
+                end
             end
         end
     } )
@@ -325,6 +361,13 @@ function SWEP:PrimaryAttack()
 
     end )
 end
+
+hook.Add( "terminator_blocktarget", "supercop_ignoreunkillables", function( supercop, target )
+    local ignoreOverrides = supercop.termIgnoreOverrides
+    if not ignoreOverrides then return end
+    if ignoreOverrides[ target ] then return true end
+
+end )
 
 function SWEP:DoMuzzleFlash()
     if not SERVER then return end

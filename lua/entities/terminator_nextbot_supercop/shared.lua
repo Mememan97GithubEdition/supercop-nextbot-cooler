@@ -638,7 +638,7 @@ function ENT:DoTasks()
                     -- bring out stunstick
                     if not doingBeatinStick and blockShootingTimeGood and nextWeaponPickup < CurTime() then
                         self.PreventShooting = nil
-                        self.DoHolster = nil
+                        self.IsHolstered = nil
                         self:Give( beatinStickClass )
                         self.AimSpeed = self.DefaultAimSpeed * self.MeleeAimSpeedMul
                         self.SupercopBlockShooting = CurTime() + 0.2
@@ -657,8 +657,8 @@ function ENT:DoTasks()
 
                     end
                 -- bring out gun
-                elseif self.DoHolster and closeOrNotMoving and self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy then
-                    self.DoHolster = nil
+                elseif self.IsHolstered and closeOrNotMoving and self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy then
+                    self.IsHolstered = nil
                     self:Term_PlaySentence( weaponWarn, revolverCondition )
 
                     self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, CurTime() + 0.75 )
@@ -674,31 +674,31 @@ function ENT:DoTasks()
 
                 -- put away gun
                 elseif self.DistToEnemy > ( self.SupercopEquipRevolverDist + 250 ) and moving and blockShootingTimeGood and not self:IsReallyAngry() then
-                    self.DoHolster = true
+                    self.IsHolstered = true
                     self.PreventShooting = true
 
                 end
 
                 local lostEnemyForASec = ( self.LastEnemySpotTime + 1 ) < CurTime()
-                local needToReload = ( wep:Clip1() < wep:GetMaxClip1() / 2 ) or ( wep:Clip1() < wep:GetMaxClip1() and self.DoHolster )
+                local needToReload = ( wep:Clip1() < wep:GetMaxClip1() / 2 ) or ( wep:Clip1() < wep:GetMaxClip1() and self.IsHolstered )
 
-                if self.DoHolster ~= self.OldDoHolster then
+                if self.IsHolstered ~= self.OldIsHolstered then
                     -- gun was reloaded and i dont need to shoot right now
-                    if self.DoHolster and wep:Clip1() == wep:GetMaxClip1() then
+                    if self.IsHolstered and wep:Clip1() == wep:GetMaxClip1() then
                         wep:SetWeaponHoldType( "passive" )
 
                     -- i need to shoot!
-                    elseif self.DoHolster ~= true then
+                    elseif self.IsHolstered ~= true then
                         wep:SetWeaponHoldType( "revolver" )
 
                     end
-                    self.OldDoHolster = self.DoHolster
+                    self.OldIsHolstered = self.IsHolstered
 
                 end
                 local readyToShoot = self.SupercopBlockShooting < CurTime()
                 local tooLongSinceSeen = math.abs( self.LastEnemySpotTime - CurTime() ) > 4
                 local canSeeThem = self.IsSeeEnemy
-                local blockShooting = not blockShootingTimeGood or self.DoHolster or self.PreventShooting or not readyToShoot or tooLongSinceSeen
+                local blockShooting = not blockShootingTimeGood or self.IsHolstered or self.PreventShooting or not readyToShoot or tooLongSinceSeen
                 -- by default, aim at the last spot we saw enemy
                 local toAimAt = self.LastEnemyShootPos
                 -- otherwise, if we see enemy, aim right at them
@@ -736,11 +736,11 @@ function ENT:DoTasks()
                     end
                 elseif wep:Clip1() <= 0 and wep:GetMaxClip1() > 0 and lostEnemyForASec then
                     self:WeaponReload()
-                    self.OldDoHolster = nil
+                    self.OldIsHolstered = nil
 
                 elseif wep:GetMaxClip1() > 0 and self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy and needToReload then
                     self:WeaponReload()
-                    self.OldDoHolster = nil
+                    self.OldIsHolstered = nil
 
                 else
                     -- look at enemy, block shooting
@@ -1009,6 +1009,10 @@ function ENT:DoTasks()
 
                     local reachable = self:areaIsReachable( result.area )
                     if not reachable then data.Unreachable = true return end
+
+                    local aboveUsJustShoot = ( math.abs( result.pos.z - enemyPos.z ) / 2 ) > self:GetPos():Distance( result.pos )
+
+                    if aboveUsJustShoot then data.Unreachable = true return end
 
                     local posOnNav = result.pos
                     self:SetupPathShell( posOnNav )
