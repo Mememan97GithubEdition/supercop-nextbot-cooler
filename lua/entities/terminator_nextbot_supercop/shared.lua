@@ -540,6 +540,9 @@ function ENT:AdditionalInitialize()
     self.SupercopJustspawnedBlockShooting = CurTime() + spawnProt
     self.SupercopJustspawnedBlockBeatstick = CurTime() + ( spawnProt * 0.25 )
 
+    self.Term_FOV = 180
+    self.AutoUpdateFOV = nil
+
     self.AimSpeed = self.DefaultAimSpeed
     self.NextForcedEnemy = CurTime()
     self.LastEnemySpotTime = CurTime()
@@ -805,7 +808,7 @@ function ENT:DoTasks()
                                 IsValid( pickedPlayer ) and
                                 pickedPlayer:Health() > 0 and
                                 (
-                                    ( self:ShouldBeEnemy( pickedPlayer ) and terminator_Extras.PosCanSee( self:GetShootPos(), self:EntShootPos( pickedPlayer ) ) ) or
+                                    ( self:ShouldBeEnemy( pickedPlayer ) and self:IsInMyFov( pickedPlayer ) and terminator_Extras.PosCanSee( self:GetShootPos(), self:EntShootPos( pickedPlayer ) ) ) or
                                     ( tooLongSinceLastPlayer and pickedIsReachable )
                                 )
                             then
