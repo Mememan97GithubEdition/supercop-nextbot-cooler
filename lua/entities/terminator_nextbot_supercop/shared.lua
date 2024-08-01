@@ -1256,19 +1256,21 @@ function ENT:DoTasks()
                     end
                     local posWithSightline = self:findValidNavResult( scoreData, self:GetPos(), maxDist, scoreFunction, 8 )
 
-                    self:InvalidatePath( "new path time, los" )
-
                     local result = terminator_Extras.getNearestPosOnNav( posWithSightline )
                     local posOnNav = result.pos
-                    self:SetupPathShell( posOnNav )
 
-                    data.nextPath = CurTime() + math.Rand( 0.25, 0.5 )
-                    --debugoverlay.Cross( posOnNav, 100, 1, color_white, true )
+                    if posOnNav then
+                        self:InvalidatePath( "new path time, los" )
+                        self:SetupPathShell( posOnNav )
 
-                    if not self:primaryPathIsValid() then return end
-                    data.endToEnemyBlockedCount = 0
-                    data.nextPath = CurTime() + math.Rand( 0.5, 1 )
+                        data.nextPath = CurTime() + math.Rand( 0.25, 0.5 )
+                        --debugoverlay.Cross( posOnNav, 100, 1, color_white, true )
 
+                        if not self:primaryPathIsValid() then return end
+                        data.endToEnemyBlockedCount = 0
+                        data.nextPath = CurTime() + math.Rand( 0.5, 1 )
+
+                    end
                 elseif data.endToEnemyBlockedCount > 4 and seeAndCanShoot then
                     -- walked into los, but path end will take us out of los
                     self:InvalidatePath( "break path, i can see em!" )
