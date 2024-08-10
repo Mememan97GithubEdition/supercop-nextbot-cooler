@@ -14,6 +14,14 @@ list.Set( "NPC", "terminator_nextbot_supercop", {
 
 if CLIENT then
     language.Add( "terminator_nextbot_supercop", ENT.PrintName )
+
+    local supercopsColor = Vector( 0.1, 0.1, 0.1 )
+    --https://github.com/Facepunch/garrysmod/blob/master/garrysmod/lua/matproxy/player_color.lua
+    function ENT:GetPlayerColor()
+        return supercopsColor
+
+    end
+
     return
 
 else
