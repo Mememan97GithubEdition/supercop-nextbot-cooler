@@ -417,7 +417,7 @@ function ENT:OnKilledPlayerEnemyLine()
     -- secret, funny pick up that can line
     if math.random( 0, 100 ) <= 5 and math.random( 0, 100 ) <= 15 and self.NextPickupTheCanLine < CurTime() then
         self.NextPickupTheCanLine = CurTime() + 55
-        self.NextSpokenLine = CurTime() + 4
+        self.NextTermSpeak = CurTime() + 4
         timer.Simple( 1.5, function()
             if not IsValid( self ) then return end
             self:SpeakLine( "npc/metropolice/vo/pickupthecan3.wav" )
@@ -615,8 +615,9 @@ local function revolverCondition( me )
 
 end
 
-function ENT:DoTasks()
+function ENT:DoCustomTasks( defaultTasks )
     self.TaskList = {
+        ["awareness_handler"] = defaultTasks["awareness_handler"],
         ["shooting_handler"] = {
             OnStart = function( self, data )
             end,
@@ -761,16 +762,6 @@ function ENT:DoTasks()
             end,
             StartControlByPlayer = function( self, data, ply )
                 self:TaskFail( "shooting_handler" )
-            end,
-        },
-        -- manages whether or not stuff is breakable.
-        ["awareness_handler"] = {
-            BehaveUpdate = function( self, data, interval )
-                local nextAware = data.nextAwareness or 0
-                if nextAware < CurTime() then
-                    data.nextAwareness = CurTime() + 1.5
-                    self:understandSurroundings()
-                end
             end,
         },
         ["enemy_handler"] = {
