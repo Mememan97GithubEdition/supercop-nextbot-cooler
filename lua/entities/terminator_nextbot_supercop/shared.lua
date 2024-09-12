@@ -420,17 +420,17 @@ function ENT:OnKilledPlayerEnemyLine()
         self.NextTermSpeak = CurTime() + 4
         timer.Simple( 1.5, function()
             if not IsValid( self ) then return end
-            self:SpeakLine( "npc/metropolice/vo/pickupthecan3.wav" )
+            self:Term_SpeakSoundNow( "npc/metropolice/vo/pickupthecan3.wav" )
 
         end )
 
         timer.Simple( 2.75, function()
             if not IsValid( self ) then return end
-            self:SpeakLine( "npc/metropolice/vo/chuckle.wav" )
+            self:Term_SpeakSoundNow( "npc/metropolice/vo/chuckle.wav" )
 
         end )
     else
-        self:Term_PlaySentence( playerDead )
+        self:Term_SpeakSentence( playerDead )
 
     end
 end
@@ -654,7 +654,7 @@ function ENT:DoCustomTasks( defaultTasks )
                         self:Give( beatinStickClass )
                         self.AimSpeed = self.DefaultAimSpeed * self.MeleeAimSpeedMul
                         self.SupercopBlockShooting = CurTime() + 0.2
-                        self:Term_PlaySentence( stunstickEquip, stunstickCondition )
+                        self:Term_SpeakSentence( stunstickEquip, stunstickCondition )
                         self.SupercopBlockOlReliable = CurTime() + math.Rand( 2, 3 )
 
                     end
@@ -671,7 +671,7 @@ function ENT:DoCustomTasks( defaultTasks )
                 -- bring out gun
                 elseif self.IsHolstered and closeOrNotMoving and self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy then
                     self.IsHolstered = nil
-                    self:Term_PlaySentence( weaponWarn, revolverCondition )
+                    self:Term_SpeakSentence( weaponWarn, revolverCondition )
 
                     self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, CurTime() + 0.75 )
                     self.PreventShooting = nil
@@ -822,7 +822,7 @@ function ENT:DoCustomTasks( defaultTasks )
                                 local nextFlankLine = data.nextFlankLine or 0
                                 if nextFlankLine < CurTime() then
                                     data.nextFlankLine = CurTime() + 20
-                                    self:Term_PlaySentence( "METROPOLICE_FLANK6" )
+                                    self:Term_SpeakSentence( "METROPOLICE_FLANK6" )
 
                                 end
                             end
@@ -927,7 +927,7 @@ function ENT:DoCustomTasks( defaultTasks )
 
                     if IsValid( newenemy ) then
                         if not data.HasEnemy then
-                            self:Term_PlaySentence( spottedEnemy, aliveEnem )
+                            self:Term_SpeakSentence( spottedEnemy, aliveEnem )
                             self:RunTask( "EnemyFound", newenemy )
                             --print( "new", newenemy )
 
@@ -1044,17 +1044,17 @@ function ENT:DoCustomTasks( defaultTasks )
                         self:TaskComplete( "movement_followenemy" )
                         self:StartTask2( "movement_maintainlos", { Unreachable = true }, "they're unreachable!" )
                         if validEnemy then
-                            self:Term_PlaySentence( playerUnreachBegin, aliveEnem )
+                            self:Term_SpeakSentence( playerUnreachBegin, aliveEnem )
 
                         end
                     end
                     if data.nextTauntLine < CurTime() then
                         if self.IsSeeEnemy then
-                            self:Term_PlaySentence( approachingEnemyVisible, aliveEnem )
+                            self:Term_SpeakSentence( approachingEnemyVisible, aliveEnem )
                             data.nextTauntLine = CurTime() + math.Rand( 7, 13 )
 
                         else
-                            self:Term_PlaySentence( approachingEnemyObscured, aliveEnem )
+                            self:Term_SpeakSentence( approachingEnemyObscured, aliveEnem )
                             data.nextTauntLine = CurTime() + math.Rand( 13, 20 )
 
                         end
@@ -1324,11 +1324,11 @@ function ENT:DoCustomTasks( defaultTasks )
                 else
                     if data.nextTauntLine < CurTime() then
                         if seeAndCanShoot then
-                            self:Term_PlaySentence( approachingEnemyVisible, aliveEnem )
+                            self:Term_SpeakSentence( approachingEnemyVisible, aliveEnem )
                             data.nextTauntLine = CurTime() + math.Rand( 7, 13 )
 
                         else
-                            self:Term_PlaySentence( approachingEnemyObscured, aliveEnem )
+                            self:Term_SpeakSentence( approachingEnemyObscured, aliveEnem )
                             data.nextTauntLine = CurTime() + math.Rand( 13, 20 )
 
                         end
