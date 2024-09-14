@@ -601,8 +601,8 @@ local function aliveEnem( me )
         return enem:Alive()
 
     else
-        if enemy:GetMaxHealth() > 0 then
-            return enemy:Health() > 0
+        if enem:GetMaxHealth() > 0 then
+            return enem:Health() > 0
 
         end
     end
