@@ -596,7 +596,16 @@ end
 
 local function aliveEnem( me )
     local enem = me:GetEnemy()
-    if not IsValid( enem ) or not enem:Alive() then return end
+    if not IsValid( enem ) then return end
+    if enem:IsPlayer() then
+        return enem:Alive()
+
+    else
+        if enemy:GetMaxHealth() > 0 then
+            return enemy:Health() > 0
+
+        end
+    end
     return true
 
 end
