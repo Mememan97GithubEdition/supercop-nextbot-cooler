@@ -201,14 +201,6 @@ function ENT:GetFootstepSoundTime()
 
 end
 
-function ENT:DoHardcodedRelations()
-    self:SetClassRelationship( "player", D_HT,1 )
-    self:SetClassRelationship( "npc_lambdaplayer", D_HT,1 )
-    self:SetClassRelationship( "terminator_nextbot", D_HT, 1 )
-    self:SetClassRelationship( "terminator_nextbot_slower", D_HT, 1 )
-
-end
-
 local function hitEffect( hitPos, scale )
     local effect = EffectData()
     effect:SetOrigin( hitPos )
@@ -364,6 +356,7 @@ local stunstickEquip = {
 
 }
 
+-- needs this overridden, supercop hates everything by default
 function ENT:GetDesiredEnemyRelationship( ent )
     local disp = D_HT
     local theirdisp = D_HT
