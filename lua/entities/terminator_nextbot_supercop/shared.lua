@@ -623,7 +623,7 @@ function ENT:DoCustomTasks( defaultTasks )
         ["shooting_handler"] = {
             OnStart = function( self, data )
             end,
-            BehaveUpdate = function(self,data,interval)
+            BehaveUpdatePriority = function(self,data,interval)
                 local enemy = self:GetEnemy()
                 local wep = self:GetActiveLuaWeapon() or self:GetActiveWeapon()
                 -- edge case
@@ -632,6 +632,9 @@ function ENT:DoCustomTasks( defaultTasks )
                     return
 
                 end
+
+                local forcedToLook = self:Term_LookAround()
+                if forcedToLook then return end
 
                 local moving = self:primaryPathIsValid()
                 local doingBeatinStick = wep:GetClass() == beatinStickClass
@@ -973,7 +976,7 @@ function ENT:DoCustomTasks( defaultTasks )
                     self:SetEnemy( newenemy )
                 end
             end,
-            BehaveUpdate = function(self,data,interval)
+            BehaveUpdatePriority = function(self,data,interval)
                 self.UpdateEnemyHandler()
             end,
             StartControlByPlayer = function( self, data, ply )
@@ -997,7 +1000,7 @@ function ENT:DoCustomTasks( defaultTasks )
                 self:InvalidatePath( "started followenemy" )
 
             end,
-            BehaveUpdate = function( self, data )
+            BehaveUpdateMotion = function( self, data )
                 local enemy = self:GetEnemy()
                 local validEnemy = IsValid( enemy ) and enemy:Health() > 0
                 local enemyPos = self:GetLastEnemyPosition( enemy ) or self.EnemyLastPos or nil
@@ -1094,7 +1097,7 @@ function ENT:DoCustomTasks( defaultTasks )
                 self:GetPath():Invalidate()
 
             end,
-            BehaveUpdate = function( self, data )
+            BehaveUpdateMotion = function( self, data )
                 local enemy = self:GetEnemy()
                 local goodEnemy = IsValid( enemy ) and enemy:Health() >= 0
                 local seeAndCanShoot = self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy
