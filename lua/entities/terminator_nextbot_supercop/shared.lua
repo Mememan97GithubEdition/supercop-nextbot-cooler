@@ -633,9 +633,6 @@ function ENT:DoCustomTasks( defaultTasks )
 
                 end
 
-                local forcedToLook = self:Term_LookAround()
-                if forcedToLook then return end
-
                 local moving = self:primaryPathIsValid()
                 local doingBeatinStick = wep:GetClass() == beatinStickClass
                 local equipRevolverDist = self.SupercopEquipRevolverDist
@@ -758,6 +755,10 @@ function ENT:DoCustomTasks( defaultTasks )
                 elseif wep:GetMaxClip1() > 0 and self.IsSeeEnemy and self.NothingOrBreakableBetweenEnemy and needToReload then
                     self:WeaponReload()
                     self.OldIsHolstered = nil
+
+                elseif not IsValid( enemy ) then
+                    local forcedToLook = self:Term_LookAround()
+                    if forcedToLook then return end
 
                 else
                     -- look at enemy, block shooting
