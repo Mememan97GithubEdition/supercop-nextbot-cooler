@@ -58,6 +58,7 @@ ENT.HasFists = true
 ENT.IsTerminatorSupercop = true
 
 ENT.CanSpeak = true
+ENT.ReallyStuckNeverRemove = true
 
 local SUPERCOP_MODEL = "models/player/police.mdl"
 ENT.ARNOLD_MODEL = SUPERCOP_MODEL
@@ -620,6 +621,7 @@ end
 function ENT:DoCustomTasks( defaultTasks )
     self.TaskList = {
         ["awareness_handler"] = defaultTasks["awareness_handler"],
+        ["reallystuck_handler"] = defaultTasks["reallystuck_handler"],
         ["shooting_handler"] = {
             OnStart = function( self, data )
             end,
