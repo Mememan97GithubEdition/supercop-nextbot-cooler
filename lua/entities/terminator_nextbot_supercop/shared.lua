@@ -6,10 +6,12 @@ ENT.Base = "terminator_nextbot"
 DEFINE_BASECLASS( ENT.Base )
 ENT.PrintName = "The Supercop"
 ENT.Spawnable = false
+ENT.AdminOnly = true
 list.Set( "NPC", "terminator_nextbot_supercop", {
     Name = "The Supercop",
     Class = "terminator_nextbot_supercop",
     Category = "Terminator Nextbot",
+    AdminOnly = true,
 } )
 
 if CLIENT then
@@ -1313,7 +1315,7 @@ function ENT:DoCustomTasks( defaultTasks )
                     local navResult = terminator_Extras.getNearestPosOnNav( enemy:GetPos() )
                     local reachable = self:areaIsReachable( navResult.area )
                      -- allow an escape here on wander because wander can't loop easily.
-                    if reachable then
+                    if reachable and not ( enemy.InVehicle and enemy:InVehicle() ) then
                         self:TaskComplete( "movement_maintainlos" )
                         self:StartTask2( "movement_followenemy", nil, "enemy seems to be reachable, gonna try pathing to them." )
                         return
