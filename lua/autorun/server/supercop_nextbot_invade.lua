@@ -26,7 +26,7 @@ local function setupCopRandomSpawnpoint()
 end
 
 local function hasNavmesh()
-    if #navmesh.GetAllNavAreas() <= 0 then return end
+    if navmesh.GetNavAreaCount() <= 0 then return end
 
     return true
 
