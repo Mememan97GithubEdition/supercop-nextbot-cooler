@@ -266,6 +266,10 @@ function ENT:OnTakeDamage( damageInfo )
 
 end
 
+-- does not flinch
+function ENT:HandleFlinching()
+end
+
 local spottedEnemy = {
     "METROPOLICE_MOVE_ALONG_A0",
     "METROPOLICE_BACK_UP_A0",
