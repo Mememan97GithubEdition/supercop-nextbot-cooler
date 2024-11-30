@@ -628,6 +628,7 @@ function ENT:DoCustomTasks( defaultTasks )
     self.TaskList = {
         ["awareness_handler"] = defaultTasks["awareness_handler"],
         ["reallystuck_handler"] = defaultTasks["reallystuck_handler"],
+        ["movement_wait"] = defaultTasks["movement_wait"],
         ["shooting_handler"] = {
             OnStart = function( self, data )
             end,
