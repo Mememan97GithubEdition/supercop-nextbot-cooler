@@ -629,6 +629,13 @@ function ENT:DoCustomTasks( defaultTasks )
         ["awareness_handler"] = defaultTasks["awareness_handler"],
         ["reallystuck_handler"] = defaultTasks["reallystuck_handler"],
         ["movement_wait"] = defaultTasks["movement_wait"],
+        ["enemy_handler"] = defaultTasks["enemy_handler"],
+        ["supercop_handler"] = {
+            EnemyFound = function( self, data )
+                self:Term_SpeakSentence( spottedEnemy, aliveEnem )
+
+            end,
+        },
         ["shooting_handler"] = {
             OnStart = function( self, data )
             end,
@@ -777,222 +784,16 @@ function ENT:DoCustomTasks( defaultTasks )
             end,
             StartControlByPlayer = function( self, data, ply )
                 self:TaskFail( "shooting_handler" )
-            end,
-        },
-        ["enemy_handler"] = {
-            OnStart = function( self, data )
-                data.UpdateEnemies = CurTime()
-                data.HasEnemy = false
-                data.playerCheckIndex = 0
-                data.blockSwitchingEnemies = 0
-                self.IsSeeEnemy = false
-                self.NothingOrBreakableBetweenEnemy = false
-                self.DistToEnemy = 0
-                self:SetEnemy( NULL )
 
-            end,
-            BehaveUpdatePriority = function(self,data,interval)
-                local prevenemy = self:GetEnemy()
-                local newenemy = prevenemy
-
-                if forceupdateenemies or not data.UpdateEnemies or CurTime() > data.UpdateEnemies or data.HasEnemy and not IsValid( prevenemy ) then
-                    data.UpdateEnemies = CurTime() + 0.5
-
-                    self:FindEnemies()
-
-                    -- rotate through all players one by one
-                    -- we check looong distance here so it's staggered.
-                    if not self:IgnoringPlayers() then
-                        local allPlayers = player.GetAll()
-                        local pickedPlayer = allPlayers[data.playerCheckIndex]
-
-                        local pickedIsReachable
-
-                        if IsValid( pickedPlayer ) then
-                            local result = terminator_Extras.getNearestPosOnNav( pickedPlayer:GetPos() )
-                            pickedIsReachable = self:areaIsReachable( result.area )
-
-                        end
-
-                        local didForceEnemy
-                        local tooLongSinceLastPlayer = self.NextForcedEnemy < CurTime()
-
-                        -- check if alive etc
-                        -- MESSY but it's better than it going off to the right
-                        if
-                            IsValid( pickedPlayer ) and
-                            pickedPlayer:Health() > 0 and
-                            (
-                                ( self:ShouldBeEnemy( pickedPlayer ) and self:IsInMyFov( pickedPlayer ) and terminator_Extras.PosCanSee( self:GetShootPos(), self:EntShootPos( pickedPlayer ) ) ) or
-                                ( tooLongSinceLastPlayer and pickedIsReachable )
-                            )
-                        then
-                            didForceEnemy = true
-                            self:UpdateEnemyMemory( pickedPlayer, pickedPlayer:GetPos() )
-
-                        end
-
-                        if didForceEnemy and tooLongSinceLastPlayer then
-                            self.OverwatchReportedEnemy = true
-                            self.NextForcedEnemy = CurTime() + 5
-                            local nextFlankLine = data.nextFlankLine or 0
-                            if nextFlankLine < CurTime() then
-                                data.nextFlankLine = CurTime() + 20
-                                self:Term_SpeakSentence( "METROPOLICE_FLANK6" )
-
-                            end
-                        end
-
-                        local new = data.playerCheckIndex + 1
-                        if new > #allPlayers then
-                            data.playerCheckIndex = 1
-                        else
-                            data.playerCheckIndex = new
-                        end
-                    end
-
-                    local enemy = self:FindPriorityEnemy()
-                    local canSeePrevious
-                    local nothingOrBreakableBetweenPrevious
-                    local frictionApplying
-
-                    local prevEnemyValid = IsValid( prevenemy ) and ( prevenemy.Health and prevenemy:Health() > 0 ) and prevenemy ~= enemy
-                    if prevEnemyValid then
-                        canSeePrevious = self:CanSeePosition( enemy )
-                        nothingOrBreakableBetweenPrevious = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
-
-                        frictionApplying = prevenemy:IsPlayer() or ( canSeePrevious and nothingOrBreakableBetweenPrevious )
-
-                    end
-
-                    -- conditional friction for switching enemies.
-                    -- fixes bot jumping between two enemies that get obscured as it paths, and doing a little dance
-                    if
-                        IsValid( enemy ) and
-                        prevEnemyValid and
-                        ( data.blockSwitchingEnemies > 0 and frictionApplying ) and
-                        self:GetPos():Distance( enemy:GetPos() ) > self.CloseEnemyDistance -- enemy needs to be far away, otherwise just switch now
-
-                    then
-                        data.blockSwitchingEnemies = data.blockSwitchingEnemies + -1
-                        enemy = prevenemy
-
-
-                    elseif IsValid( enemy ) then
-                        newenemy = enemy
-                        local enemyPos = enemy:GetPos()
-                        if not self.EnemyLastPos then self.EnemyLastPos = enemyPos end
-
-                        local canSeePriority = self:CanSeePosition( enemy )
-                        local nothingOrBreakableBetweenPriority = self:ClearOrBreakable( self:GetShootPos(), self:EntShootPos( enemy ), true )
-
-                        if enemy:IsPlayer() then
-                            self.NextForcedEnemy = CurTime()
-
-                        end
-                        self.LastEnemySpotTime = CurTime()
-                        self.DistToEnemy = self:GetPos():Distance( enemyPos )
-                        self.IsSeeEnemy = canSeePriority
-                        self.NothingOrBreakableBetweenEnemy = nothingOrBreakableBetweenPriority
-
-                        if self.IsSeeEnemy and not self.WasSeeEnemy then
-                            self.SupercopBlockShooting = math.max( self.SupercopBlockShooting, CurTime() + 0.15 )
-                            hook.Run( "terminator_spotenemy", self, enemy )
-
-                        elseif not self.IsSeeEnemy and self.WasSeeEnemy then
-                            hook.Run( "terminator_loseenemy", self, enemy )
-
-                        end
-
-                        hook.Run( "terminator_enemythink", self, enemy )
-
-                        self.WasSeeEnemy = self.IsSeeEnemy
-
-                        -- override enemy's relations to me
-                        self:MakeFeud( enemy )
-                        -- we cheatily store the enemy's stuff for a second to make bot feel smarter
-                        -- people can intuit where someone ran off to after 1 second, so bot can too
-                        local posCheatsLeft = self.EnemyPosCheatsLeft or 0
-                        if self.IsSeeEnemy then
-                            posCheatsLeft = 5000 -- default 5, changing it to 5000 is a certified HACK
-                        -- doesn't time out if we are too close to them
-                        elseif self.DistToEnemy < 500 and posCheatsLeft >= 1 then
-                            --debugoverlay.Line( enemyPos, self:GetPos(), 0.3, Color( 255,255,255 ), true )
-                            posCheatsLeft = math.max( 1, posCheatsLeft )
-
-                        end
-
-                        local isPly = enemy:IsPlayer()
-
-                        if isPly and self:IgnoringPlayers() then
-                            self.EnemyPosCheatsLeft = nil
-
-                        elseif enemy and enemy.Alive and enemy:Alive() then
-                            self.EnemyPosCheatsLeft = posCheatsLeft + -1
-                            self:UpdateEnemyMemory( enemy, enemy:GetPos() )
-
-                        else
-                            self.EnemyPosCheatsLeft = nil
-
-                        end
-
-                    else
-                        self.DistToEnemy = math.huge
-                    end
-                end
-
-                if IsValid( newenemy ) then
-                    if not data.HasEnemy then
-                        self:Term_SpeakSentence( spottedEnemy, aliveEnem )
-                        self:RunTask( "EnemyFound", newenemy )
-                        --print( "new", newenemy )
-
-                    elseif prevenemy ~= newenemy then
-                        self:RunTask( "EnemyChanged", newenemy, prevenemy )
-                        --print( "swit", prevenemy, newenemy )
-
-                    end
-                    data.HasEnemy = true
-
-                    if self:CanSeePosition( newenemy ) then
-                        if newenemy:IsPlayer() then
-                            data.blockSwitchingEnemies = 8
-
-                        else
-                            data.blockSwitchingEnemies = math.random( 1, 2 )
-
-                        end
-                        self.LastEnemyShootPos = self:EntShootPos( newenemy )
-                        self.AimAtEnemyShootPosTime = CurTime() + 10
-                        self:UpdateEnemyMemory( newenemy, newenemy:GetPos() )
-
-                    end
-                else
-                    if data.HasEnemy then
-                        self:RunTask( "EnemyLost", prevenemy )
-                        --print( "lost", prevenemy )
-
-                    end
-                    data.HasEnemy = false
-                    self.IsSeeEnemy = false
-
-                end
-
-                local stopShootingTime = self.AimAtEnemyShootPosTime or 0
-                if stopShootingTime < CurTime() then
-                    self.LastEnemyShootPos = nil
-
-                end
-
-                self:SetEnemy( newenemy )
-
-            end,
-            StartControlByPlayer = function( self, data, ply )
-                self:TaskFail( "enemy_handler" )
             end,
         },
         ["movement_handler"] = {
             OnStart = function( self, data )
+                data.wait = CurTime() + 0.5
+
+            end,
+            BehaveUpdateMotion = function( self, data )
+                if data.wait > CurTime() then return end
                 self:TaskComplete( "movement_handler" )
                 self:StartTask2( "movement_followenemy", nil, "getem!" )
 
@@ -1025,8 +826,7 @@ function ENT:DoCustomTasks( defaultTasks )
                     local reachable = self:areaIsReachable( result.area )
                     if not reachable then data.Unreachable = true return end
 
-                    local aboveUsJustShoot = ( math.abs( result.pos.z - enemyPos.z ) / 2 ) > self:GetPos():Distance( result.pos )
-
+                    local aboveUsJustShoot = ( math.abs( result.pos.z - enemyPos.z ) / 2 ) > self:GetPos():Distance( result.pos ) -- flying enemy
                     if aboveUsJustShoot then data.Unreachable = true return end
 
                     local posOnNav = result.pos
@@ -1358,4 +1158,12 @@ function ENT:DoCustomTasks( defaultTasks )
             end,
         },
     }
+end
+
+
+function ENT:SetupTasks()
+    BaseClass.SetupTasks( self )
+
+    self:StartTask( "supercop_handler" )
+
 end
