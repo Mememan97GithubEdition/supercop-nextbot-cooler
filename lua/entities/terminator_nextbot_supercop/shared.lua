@@ -364,7 +364,7 @@ local stunstickEquip = {
 }
 
 -- needs this overridden, supercop hates everything by default
-function ENT:GetDesiredEnemyRelationship( ent )
+function ENT:GetDesiredEnemyRelationship( myTbl, ent, _entsTbl, _isFirst )
     local disp = D_HT
     local theirdisp = D_HT
     local priority = 1
@@ -389,11 +389,11 @@ function ENT:GetDesiredEnemyRelationship( ent )
         end
 
         local memories = {}
-        if self.awarenessMemory then
-            memories = self.awarenessMemory
+        if myTbl.awarenessMemory then
+            memories = myTbl.awarenessMemory
 
         end
-        local key = self:getAwarenessKey( ent )
+        local key = myTbl.getAwarenessKey( self, ent )
         local memory = memories[key]
 
         if memory == MEMORY_WEAPONIZEDNPC then
