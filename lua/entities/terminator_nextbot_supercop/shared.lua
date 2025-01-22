@@ -773,7 +773,7 @@ function ENT:DoCustomTasks( defaultTasks )
                     self.OldIsHolstered = nil
 
                 elseif not IsValid( enemy ) then
-                    local forcedToLook = self:Term_LookAround()
+                    local forcedToLook = self:Term_LookAround( data.myTbl )
                     if forcedToLook then return end
 
                 else
