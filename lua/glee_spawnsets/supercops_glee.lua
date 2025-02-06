@@ -14,7 +14,7 @@ local supercopSpawnSet = {
     maxSpawnDist = "default",
     roundStartSound = "ambient/alarms/manhack_alert_pass1.wav",
     roundEndSound = "ambient/alarms/citadel_alert_loop2.wav",
-    chanceToBeVotable = 0.5,
+    chanceToBeVotable = 5,
     spawns = {
         {
             hardRandomChance = nil,
