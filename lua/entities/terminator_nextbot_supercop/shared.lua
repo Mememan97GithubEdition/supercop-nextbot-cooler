@@ -166,8 +166,8 @@ end
 local dotVec = Vector( 0,0,1 )
 
 -- hacky as hell but makes sure the sounds are always in sync
-function ENT:AdditionalThink()
-    if not self.loco:IsOnGround() then return end
+function ENT:AdditionalThink( myTbl )
+    if not myTbl.loco:IsOnGround() then return end
 
     local leftFoot = self:LookupBone( "ValveBiped.Bip01_L_Foot" )
     local leftFootPos, leftFootAng = self:GetBonePosition( leftFoot )
@@ -176,7 +176,7 @@ function ENT:AdditionalThink()
     local rightFootPos, rightFootAng = self:GetBonePosition( rightFoot )
 
     local currStepping = { left = false, right = false }
-    local oldStepping = self.custom_OldStepping or currStepping
+    local oldStepping = myTbl.custom_OldStepping or currStepping
     local feet = { left = { pos = leftFootPos, ang = leftFootAng }, right = { pos = rightFootPos, ang = rightFootAng } }
 
     for curr, foot in pairs( feet ) do
@@ -184,12 +184,12 @@ function ENT:AdditionalThink()
         currStepping[curr] = dot < -0.8
 
         if currStepping[curr] and not oldStepping[curr] then
-            self.NeedsAStep = true
+            myTbl.NeedsAStep = true
 
         end
     end
 
-    self.custom_OldStepping = currStepping
+    myTbl.custom_OldStepping = currStepping
 
 end
 
