@@ -554,7 +554,7 @@ function ENT:AdditionalInitialize()
     self.AimSpeed = self.DefaultAimSpeed
     self.NextForcedEnemy = CurTime()
     self.LastEnemySpotTime = CurTime()
-    self.isTerminatorHunterChummy = false
+    self.isTerminatorHunterChummy = "supercop"
 
     if engine.ActiveGamemode() == "terrortown" then
         if supercopJog:GetBool() then return end
