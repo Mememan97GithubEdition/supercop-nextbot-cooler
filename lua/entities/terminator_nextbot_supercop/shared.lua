@@ -631,12 +631,14 @@ function ENT:DoCustomTasks( defaultTasks )
         ["movement_wait"] = defaultTasks["movement_wait"],
         ["enemy_handler"] = defaultTasks["enemy_handler"],
         ["supercop_handler"] = {
+            StartsOnInitialize = true,
             EnemyFound = function( self, data )
                 self:Term_SpeakSentence( spottedEnemy, aliveEnem )
 
             end,
         },
         ["shooting_handler"] = {
+            StartsOnInitialize = true,
             OnStart = function( self, data )
             end,
             BehaveUpdatePriority = function(self,data,interval)
@@ -788,6 +790,7 @@ function ENT:DoCustomTasks( defaultTasks )
             end,
         },
         ["movement_handler"] = {
+            StartsOnInitialize = true,
             OnStart = function( self, data )
                 data.wait = CurTime() + 0.5
 
@@ -1158,12 +1161,4 @@ function ENT:DoCustomTasks( defaultTasks )
             end,
         },
     }
-end
-
-
-function ENT:SetupTasks()
-    BaseClass.SetupTasks( self )
-
-    self:StartTask( "supercop_handler" )
-
 end
