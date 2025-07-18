@@ -77,6 +77,38 @@ function ENT:CanTool()
 
 end
 
+ENT.FootstepClomping = false
+
+ENT.Term_FootstepTiming = "perfect"
+-- ENT.PerfectFootsteps_Up = Vector( 0, 0, 1 ) -- comment these out since the defaults are based on us
+-- ENT.PerfectFootsteps_SteppingCriteria = 0.8
+ENT.PerfectFootsteps_FeetBones = { "ValveBiped.Bip01_L_Foot", "ValveBiped.Bip01_R_Foot" } -- feet bones that match our model
+ENT.Term_FootstepIgnorePAS = true
+
+ENT.Term_FootstepMode = "custom"
+ENT.Term_FootstepSound = {
+    {
+        path = "NPC_MetroPolice.RunFootstepLeft",
+        lvl = 88,
+        pitch = { 80, 90 },
+        volume = 1,
+        chan = CHAN_STATIC,
+    },
+    {
+        path = "NPC_MetroPolice.RunFootstepRight",
+        lvl = 88,
+        pitch = { 80, 90 },
+        volume = 1,
+        chan = CHAN_STATIC,
+    }
+}
+ENT.Term_FootstepShake = {
+    amplitude = 1,
+    frequency = 20,
+    duration = 0.5,
+    radius = 1500,
+}
+
 CreateConVar( "supercop_nextbot_forcedmodel", SUPERCOP_MODEL, bit.bor( FCVAR_ARCHIVE ), "Override the supercop nextbot's spawned-in model. Model needs to be rigged for player movement" )
 
 local function supercopModel()
@@ -99,110 +131,6 @@ if not supercopModel() then
 end
 
 ENT.Models = { SUPERCOP_MODEL }
-
-local vecFiveDown = Vector( 0, 0, -5 )
-
--- copied the original function
-function ENT:MakeFootstepSound( volume, surface )
-    local foot = self.m_FootstepFoot
-    self.m_FootstepFoot = not foot
-    self.m_FootstepTime = CurTime()
-
-    local tr
-
-    if not surface then
-        tr = util.TraceEntity( {
-            start = self:GetPos(),
-            endpos = self:GetPos() + vecFiveDown,
-            filter = self,
-            mask = self:GetSolidMask(),
-            collisiongroup = self:GetCollisionGroup(),
-
-        }, self )
-
-        surface = tr.SurfaceProps
-    end
-    local pos = self:GetPos()
-
-    if surface or ( tr and tr.Hit ) then
-        local copStep = foot and "NPC_MetroPolice.RunFootstepRight" or "NPC_MetroPolice.RunFootstepLeft"
-
-        local filter = RecipientFilter()
-        filter:AddAllPlayers()
-
-        self:EmitSound( copStep, 88, math.random( 80, 90 ), 1, CHAN_STATIC, bit.bor( SND_CHANGE_PITCH, SND_CHANGE_VOL ), 0, filter )
-
-    end
-
-    util.ScreenShake( self:GetPos(), 1, 20, 0.5, 1500 )
-
-    if not surface then return end
-
-    local surfaceDat = util.GetSurfaceData( surface )
-    if not surfaceDat then return end
-
-    local sound = foot and surfaceDat.stepRightSound or surfaceDat.stepLeftSound
-
-    if sound then
-
-        local filter = RecipientFilter()
-        filter:AddPAS( pos )
-
-        if not self:OnFootstep( pos, foot, sound, volume, filter ) then
-            self.stepSoundPatches = self.stepSoundPatches or {}
-
-            local stepSound = self.stepSoundPatches[sound]
-            if not stepSound then
-                stepSound = CreateSound( self, sound, filter )
-                self.stepSoundPatches[sound] = stepSound
-            end
-            stepSound:Stop()
-            stepSound:Play()
-
-        end
-    end
-end
-
-local dotVec = Vector( 0,0,1 )
-
--- hacky as hell but makes sure the sounds are always in sync
-function ENT:AdditionalThink( myTbl )
-    if not myTbl.loco:IsOnGround() then return end
-
-    local leftFoot = self:LookupBone( "ValveBiped.Bip01_L_Foot" )
-    local leftFootPos, leftFootAng = self:GetBonePosition( leftFoot )
-
-    local rightFoot = self:LookupBone( "ValveBiped.Bip01_R_Foot" )
-    local rightFootPos, rightFootAng = self:GetBonePosition( rightFoot )
-
-    local currStepping = { left = false, right = false }
-    local oldStepping = myTbl.custom_OldStepping or currStepping
-    local feet = { left = { pos = leftFootPos, ang = leftFootAng }, right = { pos = rightFootPos, ang = rightFootAng } }
-
-    for curr, foot in pairs( feet ) do
-        local dot = foot.ang:Forward():Dot( dotVec )
-        currStepping[curr] = dot < -0.8
-
-        if currStepping[curr] and not oldStepping[curr] then
-            myTbl.NeedsAStep = true
-
-        end
-    end
-
-    myTbl.custom_OldStepping = currStepping
-
-end
-
--- yuck!
-function ENT:GetFootstepSoundTime()
-    if self.NeedsAStep then
-        self.NeedsAStep = nil
-        return 0
-
-    end
-    return math.huge
-
-end
 
 local function hitEffect( hitPos, scale )
     local effect = EffectData()
