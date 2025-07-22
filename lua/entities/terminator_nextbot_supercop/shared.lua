@@ -339,6 +339,7 @@ end
 local beatinStickClass = "weapon_term_supercopstunstick"
 local olReliableClass = "weapon_term_supercoprevolver"
 
+ENT.DefaultWeapon = olReliableClass
 ENT.TERM_FISTS = beatinStickClass
 
 function ENT:OnKilledPlayerEnemyLine()
@@ -466,7 +467,6 @@ local supercopJog = CreateConVar( "supercop_nextbot_jog", 0, bit.bor( FCVAR_ARCH
 function ENT:AdditionalInitialize()
     self:SetModel( supercopModel() )
 
-    self:Give( "weapon_term_supercoprevolver" )
     self:SetCollisionGroup( COLLISION_GROUP_PLAYER )
     self:SetSolidMask( MASK_PLAYERSOLID )
 
