@@ -56,7 +56,6 @@ ENT.DontDropPrimary = true
 
 ENT.LookAheadOnlyWhenBlocked = true
 ENT.alwaysManiac = true -- always create feuds between us and other terms/supercops, when they damage us
-ENT.HasFists = true
 ENT.IsTerminatorSupercop = true
 
 ENT.CanSpeak = true
@@ -606,7 +605,6 @@ function ENT:DoCustomTasks( defaultTasks )
                         self.SupercopBlockOlReliable = CurTime() + math.Rand( 2, 3 )
 
                     end
-
                 elseif doingBeatinStick then
                     -- put away stunstick
                     if blockShootingTimeGood and nextWeaponPickup < CurTime() and self.SupercopBlockOlReliable < CurTime() then

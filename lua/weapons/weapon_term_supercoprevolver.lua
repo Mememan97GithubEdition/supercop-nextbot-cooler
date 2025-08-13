@@ -280,7 +280,8 @@ function SWEP:PrimaryAttack()
         Attacker = owner,
         Callback = function( attacker, traceData, damageInfo )
             local muzzleDat = self:GetAttachment( self:LookupAttachment( "muzzle" ) )
-            olReliableTrace( muzzleDat.Pos, traceData.HitPos )
+            local startPos = muzzleDat and muzzleDat.Pos or self:WorldSpaceCenter() -- custom models? idk
+            olReliableTrace( startPos, traceData.HitPos )
             self:BulletCallback( 0, attacker, traceData, damageInfo )
 
             local hitSomething = IsValid( traceData.Entity )
